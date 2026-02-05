@@ -6,14 +6,19 @@ import {
   UseMutationResult,
 } from "@tanstack/react-query";
 
-import { User, CreateUserRequest, UpdateUserRequest } from "@/types/api.types";
+import {
+  User,
+  CreateUserRequest,
+  UpdateUserRequest,
+  UserFilters,
+} from "@/types/api.types";
 import { activateUser, createUser, deactivateUser, getAllUsers, getUserById, updateUser } from "@/service/user.service";
 
 // Query keys
 export const userKeys = {
   all: ["users"] as const,
   lists: () => [...userKeys.all, "list"] as const,
-  list: (filters?: any) => [...userKeys.lists(), { filters }] as const,
+  list: (filters?: UserFilters) => [...userKeys.lists(), { filters }] as const,
   details: () => [...userKeys.all, "detail"] as const,
   detail: (id: string) => [...userKeys.details(), id] as const,
 };
@@ -21,10 +26,12 @@ export const userKeys = {
 /**
  * Hook to fetch all users
  */
-export function useUsers(): UseQueryResult<User[], Error> {
+export function useUsers(
+  filters?: UserFilters,
+): UseQueryResult<User[], Error> {
   return useQuery({
-    queryKey: userKeys.lists(),
-    queryFn: getAllUsers,
+    queryKey: userKeys.list(filters),
+    queryFn: () => getAllUsers(filters),
   });
 }
 

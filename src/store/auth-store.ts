@@ -4,7 +4,7 @@ import type { User, UserRole } from "@/types/api.types";
 
 interface AuthState {
   user: User | null;
-  token: string | null;
+  access_token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (user: User, token: string) => void;
@@ -15,20 +15,25 @@ interface AuthState {
   hasRole: (roles: UserRole[]) => boolean;
 }
 
-export const useAuthStore = create<AuthState>()(
+export const useStore = create<AuthState>()(
   persist(
     (set, get) => ({
       user: null,
-      token: null,
+      access_token: null,
       isAuthenticated: false,
       isLoading: false,
 
       login: (user, token) => {
-        set({ user, token, isAuthenticated: true, isLoading: false });
+        set({
+          user,
+          access_token: token,
+          isAuthenticated: true,
+          isLoading: false,
+        });
       },
 
       logout: () => {
-        set({ user: null, token: null, isAuthenticated: false });
+        set({ user: null, access_token: null, isAuthenticated: false });
       },
 
       updateUser: (userData) => {
@@ -59,9 +64,9 @@ export const useAuthStore = create<AuthState>()(
       name: "isp-auth-storage",
       partialize: (state) => ({
         user: state.user,
-        token: state.token,
+        access_token: state.access_token,
         isAuthenticated: state.isAuthenticated,
       }),
-    }
-  )
+    },
+  ),
 );

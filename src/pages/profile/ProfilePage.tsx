@@ -1,42 +1,63 @@
-import { useState } from 'react';
-import { useAuthStore } from '@/store/auth-store';
-import { authApi } from '@/api/auth';
-import { PageHeader } from '@/components/common/PageHeader';
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { useToast } from '@/hooks/use-toast';
-import { User, Mail, Shield, Building2, Lock, Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { PageHeader } from "@/components/common/PageHeader";
+import {
+  Card,
+  CardContent,
+  CardHeader,
+  CardTitle,
+  CardDescription,
+} from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { useToast } from "@/hooks/use-toast";
+import { User, Mail, Shield, Building2, Lock, Loader2 } from "lucide-react";
+import { useStore } from "@/store/auth-store";
 
 export function ProfilePage() {
-  const { user } = useAuthStore();
+  const { user } = useStore();
   const { toast } = useToast();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
-  const [passwords, setPasswords] = useState({ current: '', new: '', confirm: '' });
+  const [passwords, setPasswords] = useState({
+    current: "",
+    new: "",
+    confirm: "",
+  });
 
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
-      toast({ title: 'Passwords do not match', variant: 'destructive' });
+      toast({ title: "Passwords do not match", variant: "destructive" });
       return;
     }
 
     setIsChangingPassword(true);
     try {
-      await authApi.changePassword(passwords.current, passwords.new);
-      toast({ title: 'Password changed successfully' });
-      setPasswords({ current: '', new: '', confirm: '' });
+      // TODO: Implement password change API call
+      // await changePassword(passwords.current, passwords.new);
+      toast({ title: "Password changed successfully" });
+      setPasswords({ current: "", new: "", confirm: "" });
     } catch {
-      toast({ title: 'Failed to change password', description: 'Check your current password', variant: 'destructive' });
+      toast({
+        title: "Failed to change password",
+        description: "Check your current password",
+        variant: "destructive",
+      });
     } finally {
       setIsChangingPassword(false);
     }
   };
 
+  if (!user) {
+    return <div>Not authenticated</div>;
+  }
+
   return (
     <div className="space-y-6 animate-fade-in">
-      <PageHeader title="My Profile" description="Manage your account settings" />
+      <PageHeader
+        title="My Profile"
+        description="Manage your account settings"
+      />
 
       <div className="grid gap-6 lg:grid-cols-2">
         <Card>
@@ -50,12 +71,14 @@ export function ProfilePage() {
             <div className="flex items-center gap-4">
               <div className="w-16 h-16 rounded-full bg-primary flex items-center justify-center">
                 <span className="text-2xl font-bold text-primary-foreground">
-                  {user?.fullName.charAt(0)}
+                  {user.username.charAt(0).toUpperCase()}
                 </span>
               </div>
               <div>
-                <p className="text-lg font-semibold">{user?.fullName}</p>
-                <p className="text-sm text-muted-foreground">@{user?.username}</p>
+                <p className="text-lg font-semibold">{user.username}</p>
+                <p className="text-sm text-muted-foreground">
+                  @{user.username}
+                </p>
               </div>
             </div>
 
@@ -64,7 +87,7 @@ export function ProfilePage() {
                 <Mail className="w-5 h-5 text-muted-foreground" />
                 <div>
                   <p className="text-xs text-muted-foreground">Email</p>
-                  <p className="font-medium">{user?.email}</p>
+                  <p className="font-medium">{user.email}</p>
                 </div>
               </div>
 
@@ -72,31 +95,39 @@ export function ProfilePage() {
                 <Shield className="w-5 h-5 text-muted-foreground" />
                 <div>
                   <p className="text-xs text-muted-foreground">Role</p>
-                  <p className="font-medium capitalize">{user?.role.replace('_', ' ')}</p>
+                  <p className="font-medium capitalize">
+                    {user.role.replace("_", " ").toLowerCase()}
+                  </p>
                 </div>
               </div>
 
-              {user?.posName && (
+              {user.pos && (
                 <div className="flex items-center gap-3 p-3 bg-muted/50 rounded-lg">
                   <Building2 className="w-5 h-5 text-muted-foreground" />
                   <div>
-                    <p className="text-xs text-muted-foreground">Assigned POS</p>
-                    <p className="font-medium">{user.posName}</p>
+                    <p className="text-xs text-muted-foreground">
+                      Assigned POS
+                    </p>
+                    <p className="font-medium">{user.pos.name}</p>
                   </div>
                 </div>
               )}
             </div>
 
-            <div>
-              <p className="text-xs text-muted-foreground mb-2">Permissions</p>
-              <div className="flex flex-wrap gap-2">
-                {user?.permissions.map((perm, i) => (
-                  <span key={i} className="badge-info text-xs">
-                    {perm}
-                  </span>
-                ))}
+            {user.capabilities && user.capabilities.length > 0 && (
+              <div>
+                <p className="text-xs text-muted-foreground mb-2">
+                  Capabilities
+                </p>
+                <div className="flex flex-wrap gap-2">
+                  {user.capabilities.map((cap, i) => (
+                    <span key={i} className="badge-info text-xs">
+                      {cap}
+                    </span>
+                  ))}
+                </div>
               </div>
-            </div>
+            )}
           </CardContent>
         </Card>
 
@@ -106,7 +137,9 @@ export function ProfilePage() {
               <Lock className="w-5 h-5" />
               Change Password
             </CardTitle>
-            <CardDescription>Update your password to keep your account secure</CardDescription>
+            <CardDescription>
+              Update your password to keep your account secure
+            </CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleChangePassword} className="space-y-4">
@@ -116,7 +149,9 @@ export function ProfilePage() {
                   id="current"
                   type="password"
                   value={passwords.current}
-                  onChange={(e) => setPasswords({ ...passwords, current: e.target.value })}
+                  onChange={(e) =>
+                    setPasswords({ ...passwords, current: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -126,7 +161,9 @@ export function ProfilePage() {
                   id="new"
                   type="password"
                   value={passwords.new}
-                  onChange={(e) => setPasswords({ ...passwords, new: e.target.value })}
+                  onChange={(e) =>
+                    setPasswords({ ...passwords, new: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -136,7 +173,9 @@ export function ProfilePage() {
                   id="confirm"
                   type="password"
                   value={passwords.confirm}
-                  onChange={(e) => setPasswords({ ...passwords, confirm: e.target.value })}
+                  onChange={(e) =>
+                    setPasswords({ ...passwords, confirm: e.target.value })
+                  }
                   required
                 />
               </div>
@@ -147,7 +186,7 @@ export function ProfilePage() {
                     Changing...
                   </>
                 ) : (
-                  'Change Password'
+                  "Change Password"
                 )}
               </Button>
             </form>

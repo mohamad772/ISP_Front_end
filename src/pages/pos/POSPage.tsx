@@ -1,12 +1,19 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useNavigate } from "react-router-dom";
-import { posApi } from "@/api/pos";
-import type { POS } from "@/types";
+import type { POS } from "@/types/api.types";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -16,31 +23,83 @@ import {
 } from "@/components/ui/select";
 import { Progress } from "@/components/ui/progress";
 import { Plus, Search, Building2 } from "lucide-react";
+import { useToast } from "@/hooks/use-toast";
+import { useCreatePOS, usePOSList } from "@/hooks/usePos";
 
 export function POSPage() {
-  const [posList, setPOSList] = useState<POS[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState<string | undefined>(
-    undefined
-  );
   const navigate = useNavigate();
+  const { toast } = useToast();
+  const [search, setSearch] = useState("");
+  const [statusFilter, setStatusFilter] = useState<string>("all");
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newPOS, setNewPOS] = useState({
+    name: "",
+    location: "",
+    contactPhone: "",
+    allocatedBandwidthMbps: "",
+  });
 
-  useEffect(() => {
-    const loadPOS = async () => {
-      setIsLoading(true);
-      try {
-        const data = await posApi.getAll({
-          search: search || undefined,
-          status: statusFilter || undefined,
-        });
-        setPOSList(data);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadPOS();
-  }, [search, statusFilter]);
+  const { data: posList = [], isLoading } = usePOSList();
+  const createPOSMutation = useCreatePOS();
+
+  const handleCreatePOS = async () => {
+    if (isCreating) {
+      return;
+    }
+    const allocated = Number(newPOS.allocatedBandwidthMbps);
+    if (!newPOS.name.trim() || !newPOS.location.trim() || !newPOS.contactPhone.trim()) {
+      toast({ title: "All fields are required", variant: "destructive" });
+      return;
+    }
+    if (!Number.isFinite(allocated) || allocated <= 0) {
+      toast({ title: "Allocated bandwidth must be a positive number", variant: "destructive" });
+      return;
+    }
+    try {
+      setIsCreating(true);
+      await createPOSMutation.mutateAsync({
+        name: newPOS.name.trim(),
+        location: newPOS.location.trim(),
+        contactPhone: newPOS.contactPhone.trim(),
+        allocatedBandwidthMbps: allocated,
+      });
+      toast({ title: "POS created successfully" });
+      setIsDialogOpen(false);
+      setNewPOS({
+        name: "",
+        location: "",
+        contactPhone: "",
+        allocatedBandwidthMbps: "",
+      });
+    } catch (error) {
+      const rawMessage =
+        (error as { response?: { data?: { message?: string | string[] } } })
+          ?.response?.data?.message;
+      const message = Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : rawMessage || "Failed to create POS";
+      toast({ title: message, variant: "destructive" });
+    } finally {
+      setIsCreating(false);
+    }
+  };
+
+  // Filter POS list based on search and status
+  const filteredPOSList = posList.filter((pos) => {
+    const matchesSearch = search
+      ? pos.name.toLowerCase().includes(search.toLowerCase()) ||
+        pos.location.toLowerCase().includes(search.toLowerCase())
+      : true;
+
+    const matchesStatus =
+      statusFilter === "all"
+        ? true
+        : (pos.isActive && statusFilter === "active") ||
+          (!pos.isActive && statusFilter === "inactive");
+
+    return matchesSearch && matchesStatus;
+  });
 
   const columns = [
     {
@@ -58,18 +117,22 @@ export function POSPage() {
         </div>
       ),
     },
-    { key: "managerName", header: "Manager" },
+    {
+      key: "contactPhone",
+      header: "Contact",
+    },
     {
       key: "bandwidth",
       header: "Bandwidth Usage",
       render: (pos: POS) => {
-        const usage = Math.round(
-          (pos.usedBandwidth / pos.allocatedBandwidth) * 100
-        );
+        const allocated = Number(pos.allocatedBandwidthMbps) || 0;
+        const used = Number(pos.usedBandwidthMbps) || 0;
+        const usage =
+          allocated > 0 ? Math.round((used / allocated) * 100) : 0;
         return (
           <div className="w-32">
             <div className="flex justify-between text-xs mb-1">
-              <span>{pos.usedBandwidth} Mbps</span>
+              <span>{used} Mbps</span>
               <span className="text-muted-foreground">{usage}%</span>
             </div>
             <Progress value={usage} className="h-2" />
@@ -78,19 +141,16 @@ export function POSPage() {
       },
     },
     {
-      key: "clients",
-      header: "Clients",
-      render: (pos: POS) => `${pos.activeClients} / ${pos.totalClients}`,
-    },
-    {
-      key: "staticIps",
-      header: "Static IPs",
-      render: (pos: POS) => `${pos.usedStaticIps} / ${pos.staticIpPool}`,
+      key: "allocated",
+      header: "Allocated",
+      render: (pos: POS) => `${pos.allocatedBandwidthMbps} Mbps`,
     },
     {
       key: "status",
       header: "Status",
-      render: (pos: POS) => <StatusBadge status={pos.status} />,
+      render: (pos: POS) => (
+        <StatusBadge status={pos.isActive ? "active" : "inactive"} />
+      ),
     },
   ];
 
@@ -100,10 +160,58 @@ export function POSPage() {
         title="POS Management"
         description="Manage Points of Sale and their resources"
         actions={
-          <Button>
-            <Plus className="w-4 h-4 mr-2" />
-            Add POS
-          </Button>
+          <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+            <DialogTrigger asChild>
+              <Button>
+                <Plus className="w-4 h-4 mr-2" />
+                Add POS
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Create New POS</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-4">
+                <div className="space-y-2">
+                  <Label>POS Name</Label>
+                  <Input
+                    value={newPOS.name}
+                    onChange={(e) => setNewPOS({ ...newPOS, name: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Location</Label>
+                  <Input
+                    value={newPOS.location}
+                    onChange={(e) => setNewPOS({ ...newPOS, location: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Contact Phone</Label>
+                  <Input
+                    value={newPOS.contactPhone}
+                    onChange={(e) =>
+                      setNewPOS({ ...newPOS, contactPhone: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Allocated Bandwidth (Mbps)</Label>
+                  <Input
+                    type="number"
+                    min="1"
+                    value={newPOS.allocatedBandwidthMbps}
+                    onChange={(e) =>
+                      setNewPOS({ ...newPOS, allocatedBandwidthMbps: e.target.value })
+                    }
+                  />
+                </div>
+                <Button className="w-full" onClick={handleCreatePOS} disabled={isCreating}>
+                  {isCreating ? "Creating..." : "Create POS"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
         }
       />
 
@@ -122,17 +230,16 @@ export function POSPage() {
             <SelectValue placeholder="All Status" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={"undefined"}>All Status</SelectItem>
+            <SelectItem value="all">All Status</SelectItem>
             <SelectItem value="active">Active</SelectItem>
             <SelectItem value="inactive">Inactive</SelectItem>
-            <SelectItem value="maintenance">Maintenance</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <DataTable
         columns={columns}
-        data={posList}
+        data={filteredPOSList}
         isLoading={isLoading}
         emptyMessage="No POS found"
         onRowClick={(pos) => navigate(`/pos/${pos.id}`)}

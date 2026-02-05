@@ -1,5 +1,10 @@
 import apiClient from "@/utils/apiClient";
-import { User, CreateUserRequest, UpdateUserRequest } from "@/types/api.types";
+import {
+  User,
+  CreateUserRequest,
+  UpdateUserRequest,
+  UserFilters,
+} from "@/types/api.types";
 
 /**
  * Create a new user
@@ -12,8 +17,10 @@ export async function createUser(data: CreateUserRequest): Promise<User> {
 /**
  * Get all users
  */
-export async function getAllUsers(): Promise<User[]> {
-  const response = await apiClient.get("/users");
+export async function getAllUsers(
+  filters?: UserFilters,
+): Promise<User[]> {
+  const response = await apiClient.get("/users", { params: filters });
   return response.data;
 }
 

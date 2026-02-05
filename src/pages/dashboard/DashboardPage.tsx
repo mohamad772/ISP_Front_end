@@ -1,4 +1,3 @@
-import { statsApi } from "@/api/stats";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,9 +8,9 @@ import { useClients } from "@/hooks/useclients";
 import { useInvoices } from "@/hooks/useInvoices";
 import { usePayments } from "@/hooks/usepayments";
 import { usePOSList } from "@/hooks/usePos";
+import { useAdminDashboardStats } from "@/hooks/useStats";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/auth-store";
-import type { DashboardStats } from "@/types";
+import { useStore } from "@/store/auth-store";
 
 
 
@@ -29,12 +28,11 @@ import {
   Wifi,
 } from "lucide-react";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 
 export function DashboardPage() {
-  const { user } = useAuthStore();
-  const [stats, setStats] = useState<DashboardStats | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const { user } = useStore();
+  const { data: stats, isLoading: isStatsLoading } = useAdminDashboardStats();
 
   // Bandwidth pool data
   const {
@@ -77,19 +75,6 @@ export function DashboardPage() {
     isPosSuccess && posData
       ? posData.filter((item) => item.isActive).length
       : 0;
-
-  // Load stats from API
-  useEffect(() => {
-    const loadStats = async () => {
-      try {
-        const data = await statsApi.getAdminDashboard();
-        setStats(data);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadStats();
-  }, []);
 
   const isAdmin = user?.role === "WSP_ADMIN"; // Updated to match the enum
 
@@ -136,7 +121,7 @@ export function DashboardPage() {
 
   // Show loading state
   if (
-    isLoading ||
+    isStatsLoading ||
     isBandwidthLoading ||
     isPosLoading ||
     isAuditLoading ||
@@ -254,7 +239,7 @@ export function DashboardPage() {
                           </span>
                           {item.posId && (
                             <>
-                              <span>•</span>
+                              <span>-</span>
                               <span className="px-2 py-0.5 rounded bg-accent/10 text-accent font-medium">
                                 POS: {item.posId.substring(0, 8)}...
                               </span>
@@ -372,3 +357,4 @@ export function DashboardPage() {
     </div>
   );
 }
+

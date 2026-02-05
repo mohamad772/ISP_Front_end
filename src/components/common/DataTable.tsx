@@ -1,20 +1,21 @@
-import { ReactNode } from 'react';
-import { Skeleton } from '@/components/ui/skeleton';
-import { User } from '@/types/api.types';
+import { ReactNode } from "react";
+import { Skeleton } from "@/components/ui/skeleton";
+
+type ColumnKey<T> = Extract<keyof T, string> | string;
 
 interface Column<T> {
-  key: string;
+  key: ColumnKey<T>;
   header: string;
-  render?: (item: User) => ReactNode;
+  render?: (item: T) => ReactNode;
   className?: string;
 }
 
-interface DataTableProps<User> {
-  columns: Column<User>[];
-  data: User[];
+interface DataTableProps<T> {
+  columns: Column<T>[];
+  data: T[];
   isLoading?: boolean;
   emptyMessage?: string;
-  onRowClick?: (item: User) => void;
+  onRowClick?: (item: T) => void;
 }
 
 export function DataTable<T extends { id: string }>({
@@ -60,13 +61,30 @@ export function DataTable<T extends { id: string }>({
               key={item.id}
               onClick={() => onRowClick?.(item)}
               className={onRowClick ? "cursor-pointer" : ""}
+              role={onRowClick ? "button" : undefined}
+              tabIndex={onRowClick ? 0 : undefined}
+              onClickCapture={() => onRowClick?.(item)}
+              onKeyDown={
+                onRowClick
+                  ? (e) => {
+                      if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        onRowClick(item);
+                      }
+                    }
+                  : undefined
+              }
             >
               {columns.map((col) => (
-                <td key={col.key} className={col.className}>
+                <td
+                  key={col.key}
+                  className={col.className}
+                  onClick={() => onRowClick?.(item)}
+                >
                   {col.render
                     ? col.render(item)
-                    : ((item as unknown as Record<string, unknown>)[
-                        col.key
+                    : ((item as Record<string, unknown>)[
+                        String(col.key)
                       ] as ReactNode)}
                 </td>
               ))}

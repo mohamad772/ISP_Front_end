@@ -25,7 +25,18 @@ export async function getAllClients(
   filters?: ClientFilters,
 ): Promise<PaginatedClients> {
   const response = await apiClient.get("/clients", { params: filters });
-  return response.data;
+  const data = response.data;
+  if (Array.isArray(data)) {
+    const page = filters?.page ?? 1;
+    const limit = filters?.limit ?? data.length;
+    return {
+      data,
+      total: data.length,
+      page,
+      limit,
+    };
+  }
+  return data;
 }
 
 /**

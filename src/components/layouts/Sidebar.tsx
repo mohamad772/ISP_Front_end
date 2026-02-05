@@ -1,6 +1,6 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
-import { useAuthStore } from "@/store/auth-store";
+import { useStore } from "@/store/auth-store";
 import {
   LayoutDashboard,
   Users,
@@ -56,7 +56,7 @@ const navItems = [
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
-  const { user } = useAuthStore();
+  const { user } = useStore();
 
   // const filteredNav = navItems.filter(item =>
   //      user && item.roles.includes(user.role);
@@ -68,7 +68,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       className={cn(
         "bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-300 border-r border-sidebar-border",
         collapsed ? "w-16" : "w-64",
-        "hidden md:flex"
+        "hidden md:flex",
       )}
     >
       {/* Logo */}
@@ -90,7 +90,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <ChevronLeft
             className={cn(
               "w-4 h-4 transition-transform",
-              collapsed && "rotate-180"
+              collapsed && "rotate-180",
             )}
           />
         </button>
@@ -106,7 +106,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               cn(
                 "sidebar-item",
                 isActive && "sidebar-item-active",
-                collapsed && "justify-center px-2"
+                collapsed && "justify-center px-2",
               )
             }
           >
@@ -122,11 +122,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           <div className="flex items-center gap-3">
             <div className="w-8 h-8 rounded-full bg-sidebar-accent flex items-center justify-center">
               <span className="text-sm font-medium">
-                {user.fullName.charAt(0)}
+                {user.username.charAt(0)}
               </span>
             </div>
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">{user.fullName}</p>
+              <p className="text-sm font-medium truncate">{user.username}</p>
               <p className="text-xs text-sidebar-muted capitalize">
                 {user.role.replace("_", " ")}
               </p>

@@ -1,56 +1,80 @@
-import { useState } from 'react';
-import { useNavigate, Navigate } from 'react-router-dom';
-import { useAuthStore } from '@/store/auth-store';
-import { authApi } from '@/api/auth';
-import { Button } from '@/components/ui/button';
-import { Input } from '@/components/ui/input';
-import { Label } from '@/components/ui/label';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { useToast } from '@/hooks/use-toast';
-import { Wifi, Loader2 } from 'lucide-react';
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "@/components/ui/card";
+import { useToast } from "@/hooks/use-toast";
+import { Wifi, Loader2 } from "lucide-react";
 import { useLogin } from "@/hooks/useAuth";
+import { useStore } from "@/store/auth-store";
+import { isAxiosError } from "axios";
+
 export function LoginPage() {
-  const [username, setUsername] = useState('');
-  const [password, setPassword] = useState('');
-  const [mfaCode, setMfaCode] = useState('');
+  const [username, setUsername] = useState("");
+  const [password, setPassword] = useState("");
   const { toast } = useToast();
   const navigate = useNavigate();
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
 
+  const { mutate, isPending } = useLogin();
 
+  // Redirect if already authenticated
+  if (isAuthenticated) {
+    navigate("/dashboard");
+    return null;
+  }
 
-  const { mutate, isPending, isError, error } = useLogin();
-  
+  const getErrorMessage = (error: unknown) => {
+    if (isAxiosError(error)) {
+      const data = error.response?.data;
+      if (data && typeof data === "object" && "message" in data) {
+        const message = (data as { message?: string }).message;
+        if (typeof message === "string" && message.trim()) {
+          return message;
+        }
+      }
+    }
 
- 
+    if (error instanceof Error && error.message) {
+      return error.message;
+    }
+
+    return "Invalid credentials. Please try again.";
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-   
 
-    try {
-mutate(
-  {
-    username: username,
-    password: password,
-  },
-  {
-    onSuccess: (data) => {
-
-      navigate("/dashboard");
-   
-    },
-    onError: (error) => {
-      console.error(error);
-    },
-  },
-);
-      } catch {
-      toast({
-        title: 'Login failed',
-        description: 'Invalid credentials. Try admin/password or manager/password',
-        variant: 'destructive',
-      });
-    } 
+    mutate(
+      {
+        username: username,
+        password: password,
+      },
+      {
+        onSuccess: (data) => {
+          toast({
+            title: "Login successful",
+            description: `Welcome back, ${data.user.username}!`,
+          });
+          navigate("/dashboard");
+        },
+        onError: (error) => {
+          console.error(error);
+          toast({
+            title: "Login failed",
+            description: getErrorMessage(error),
+            variant: "destructive",
+          });
+        },
+      },
+    );
   };
 
   return (

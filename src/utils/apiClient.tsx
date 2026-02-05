@@ -1,6 +1,5 @@
-// src/api/apiClient.ts
 import axios from "axios";
-import { useStore } from "./store";
+import { useStore } from "@/store/auth-store";
 
 const apiClient = axios.create({
   baseURL: "http://localhost:3000",
@@ -13,7 +12,7 @@ const apiClient = axios.create({
 apiClient.interceptors.request.use(
   (config) => {
     const { access_token } = useStore.getState();
-    if (config.url?.split("/")[1] != "auth") {
+    if (config.url?.split("/")[1] !== "auth") {
       console.log("injected");
       if (access_token) {
         config.headers.Authorization = `Bearer ${access_token}`;
@@ -23,7 +22,7 @@ apiClient.interceptors.request.use(
   },
   (error) => {
     return Promise.reject(error);
-  }
+  },
 );
 
 // Add a response interceptor
@@ -40,13 +39,14 @@ apiClient.interceptors.response.use(
     if (error.response && error.response.status === 401) {
       // Handle unauthorized, e.g., redirect to login
       console.error("Unauthorized access, redirecting to login");
-      // You can use a router service here, e.g., globalRouter.navigate('/login');
+      useStore.getState().logout();
+      window.location.href = "/login";
     } else {
       // Log or handle other errors
       console.error("An error occurred:", error.message);
     }
     return Promise.reject(error);
-  }
+  },
 );
 
 export default apiClient;

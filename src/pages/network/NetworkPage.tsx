@@ -1,45 +1,52 @@
-import { useEffect, useState } from 'react';
-import { networkApi } from '@/api/network';
-import type { StaticIPPool } from '@/types';
-import { PageHeader } from '@/components/common/PageHeader';
-import { StatCard } from '@/components/common/StatCard';
-import { DataTable } from '@/components/common/DataTable';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Progress } from '@/components/ui/progress';
-import { Wifi, Globe, Server, HardDrive } from 'lucide-react';
+import { PageHeader } from "@/components/common/PageHeader";
+import { StatCard } from "@/components/common/StatCard";
+import { DataTable } from "@/components/common/DataTable";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Progress } from "@/components/ui/progress";
+import { Wifi, Globe, Server, HardDrive } from "lucide-react";
+import { useBandwidthPool } from "@/hooks/usebandwidthpool";
+import { useStaticIPPools } from "@/hooks/useStaticIPPools";
+import type { StaticIPPool } from "@/types/api.types";
 
 export function NetworkPage() {
-  const [ipPools, setIPPools] = useState<StaticIPPool[]>([]);
-  const [bandwidth, setBandwidth] = useState({ total: 0, allocated: 0, available: 0 });
-  const [isLoading, setIsLoading] = useState(true);
+  const { data: bandwidthPool, isLoading: bandwidthLoading } =
+    useBandwidthPool();
+  const { data: ipPoolsByPOS = [], isLoading: poolsLoading } =
+    useStaticIPPools();
 
-  useEffect(() => {
-    const loadData = async () => {
-      try {
-        const [pools, bw] = await Promise.all([
-          networkApi.getIPPools(),
-          networkApi.getBandwidthSummary(),
-        ]);
-        setIPPools(pools);
-        setBandwidth(bw);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-    loadData();
-  }, []);
+  const isLoading = bandwidthLoading || poolsLoading;
 
-  const bandwidthUsage = Math.round((bandwidth.allocated / bandwidth.total) * 100);
+  const bandwidth = {
+    total: bandwidthPool?.totalBandwidthMbps || 0,
+    allocated: bandwidthPool?.allocatedBandwidthMbps || 0,
+    available: bandwidthPool?.availableBandwidthMbps || 0,
+  };
+
+  const bandwidthUsage =
+    bandwidth.total > 0
+      ? Math.round((bandwidth.allocated / bandwidth.total) * 100)
+      : 0;
 
   const poolColumns = [
-    { key: 'posName', header: 'POS' },
-    { key: 'subnet', header: 'Subnet', render: (p: StaticIPPool) => <code className="bg-muted px-2 py-0.5 rounded text-sm">{p.subnet}</code> },
-    { key: 'totalIps', header: 'Total IPs' },
+    { key: "posName", header: "POS" },
     {
-      key: 'usage',
-      header: 'Usage',
+      key: "subnet",
+      header: "Subnet",
+      render: (pool: StaticIPPool) => (
+        <code className="bg-muted px-2 py-0.5 rounded text-sm">
+          {pool.subnet}
+        </code>
+      ),
+    },
+    { key: "totalIps", header: "Total IPs" },
+    {
+      key: "usage",
+      header: "Usage",
       render: (pool: StaticIPPool) => {
-        const usage = Math.round((pool.assignedIps / pool.totalIps) * 100);
+        const usage =
+          pool.totalIps > 0
+            ? Math.round((pool.assignedIps / pool.totalIps) * 100)
+            : 0;
         return (
           <div className="w-32">
             <div className="flex justify-between text-xs mb-1">
@@ -51,7 +58,7 @@ export function NetworkPage() {
         );
       },
     },
-    { key: 'availableIps', header: 'Available' },
+    { key: "availableIps", header: "Available" },
   ];
 
   return (
@@ -62,9 +69,23 @@ export function NetworkPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-4">
-        <StatCard title="Total Bandwidth" value={`${bandwidth.total.toLocaleString()} Mbps`} icon={Wifi} variant="accent" />
-        <StatCard title="Allocated" value={`${bandwidth.allocated.toLocaleString()} Mbps`} icon={Server} />
-        <StatCard title="Available" value={`${bandwidth.available.toLocaleString()} Mbps`} icon={HardDrive} variant="success" />
+        <StatCard
+          title="Total Bandwidth"
+          value={`${bandwidth.total.toLocaleString()} Mbps`}
+          icon={Wifi}
+          variant="accent"
+        />
+        <StatCard
+          title="Allocated"
+          value={`${bandwidth.allocated.toLocaleString()} Mbps`}
+          icon={Server}
+        />
+        <StatCard
+          title="Available"
+          value={`${bandwidth.available.toLocaleString()} Mbps`}
+          icon={HardDrive}
+          variant="success"
+        />
         <Card className="stat-card">
           <div className="flex items-center justify-between">
             <div className="space-y-1">
@@ -81,12 +102,12 @@ export function NetworkPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>Static IP Pools</CardTitle>
+          <CardTitle>Static IP Pools by POS</CardTitle>
         </CardHeader>
         <CardContent>
           <DataTable
             columns={poolColumns}
-            data={ipPools}
+            data={ipPoolsByPOS}
             isLoading={isLoading}
             emptyMessage="No IP pools configured"
           />

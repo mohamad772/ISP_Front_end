@@ -117,6 +117,7 @@ export interface CreateUserRequest {
   password: string;
   role: UserRole;
   posId?: string;
+  clientId?: string;
   capabilities?: string[];
 }
 
@@ -378,6 +379,16 @@ export interface StaticIP extends BaseEntity {
   client?: Client;
 }
 
+export interface StaticIPPool {
+  id: string;
+  posId: string;
+  posName: string;
+  subnet: string;
+  totalIps: number;
+  assignedIps: number;
+  availableIps: number;
+}
+
 export interface CreateStaticIPRequest {
   posId: string;
   ipAddress: string;
@@ -463,7 +474,7 @@ export interface AuditLog extends BaseEntity {
   entityType: string;
   entityId?: string;
   posId?: string;
-  details?: Record<string, any>;
+  details?: Record<string, unknown>;
   ipAddress?: string;
   userAgent?: string;
   user?: User;
@@ -499,6 +510,43 @@ export interface UpdateBandwidthPoolRequest {
 }
 
 // ============================================
+// System Settings Types
+// ============================================
+
+export interface SystemSettings {
+  enableMfa: boolean;
+  sessionTimeoutMinutes: number;
+  auditLoggingEnabled: boolean;
+  emailAlertsEnabled: boolean;
+  paymentRemindersEnabled: boolean;
+  bandwidthWarningsEnabled: boolean;
+  ipWhitelistingEnabled: boolean;
+  passwordExpiryDays: number;
+  systemVersion?: string;
+  lastBackupAt?: string | null;
+}
+
+export type UpdateSystemSettingsRequest = Partial<SystemSettings>;
+
+export interface SystemHealth {
+  status?: string;
+  dbStatus?: string;
+  cacheStatus?: string;
+  uptimeSeconds?: number;
+  timestamp?: string;
+  [key: string]: unknown;
+}
+
+export interface ActiveSession {
+  id: string;
+  userId: string;
+  username?: string;
+  ipAddress?: string;
+  userAgent?: string;
+  lastActiveAt?: string;
+}
+
+// ============================================
 // Query Parameters Types
 // ============================================
 
@@ -511,6 +559,11 @@ export interface ClientFilters extends PaginationParams {
   posId?: string;
   status?: ClientStatus;
   connectionType?: ConnectionType;
+}
+
+export interface POSFilters extends PaginationParams {
+  isActive?: boolean;
+  search?: string;
 }
 
 export interface ServicePlanFilters {
@@ -526,6 +579,13 @@ export interface SubscriptionFilters {
 export interface InvoiceFilters {
   status?: InvoiceStatus;
   clientId?: string;
+}
+
+export interface UserFilters extends PaginationParams {
+  role?: UserRole;
+  isActive?: boolean;
+  posId?: string;
+  search?: string;
 }
 
 export interface PaymentFilters {
@@ -546,4 +606,40 @@ export interface PPPoERequestFilters {
 export interface SuspensionHistoryFilters {
   clientId?: string;
   suspensionReason?: SuspensionReason;
+}
+
+// ============================================
+// Dashboard Stats Types
+// ============================================
+
+export interface DashboardAlert {
+  id: string;
+  type: "warning" | "error" | "info";
+  message: string;
+  timestamp: string;
+}
+
+export interface DashboardStats {
+  totalBandwidth: number;
+  usedBandwidth: number;
+  totalPOS: number;
+  activePOS: number;
+  totalClients: number;
+  activeClients: number;
+  monthlyRevenue: number;
+  unpaidInvoices: number;
+  recentAlerts: DashboardAlert[];
+}
+
+export interface BandwidthHistoryPoint {
+  date: string;
+  usage: number;
+}
+
+export interface POSDashboardStats {
+  allocatedBandwidth: number;
+  usedBandwidth: number;
+  activeClients: number;
+  unpaidInvoices: number;
+  bandwidthHistory: BandwidthHistoryPoint[];
 }

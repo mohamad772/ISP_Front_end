@@ -15,48 +15,70 @@ import { BillingPage } from "@/pages/billing/BillingPage";
 import { NetworkPage } from "@/pages/network/NetworkPage";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
+import { LogsRequestsPage } from "@/pages/logs/LogsRequestsPage";
+import { useStore } from "@/store/auth-store";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
 
-// Placeholder for Logs page
-const LogsPlaceholder = () => (
-  <div className="p-6">
-    <h1 className="text-2xl font-bold mb-4">Logs & Requests</h1>
-    <p className="text-muted-foreground">
-      Audit logs and PPPoE request management coming soon.
-    </p>
-  </div>
-);
+const RequireAuth = ({ children }: { children: JSX.Element }) => {
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
 
-const App = () => (
-  <QueryClientProvider client={queryClient}>
-    <TooltipProvider>
-      <Toaster />
-      <Sonner />
-      <BrowserRouter>
-        <Routes>
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/" element={<MainLayout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
-            <Route path="dashboard" element={<DashboardPage />} />
-            <Route path="users" element={<UsersPage />} />
-            <Route path="users/:id" element={<UsersPage />} />
-            <Route path="pos" element={<POSPage />} />
-            <Route path="pos/:id" element={<POSDetailPage />} />
-            <Route path="clients" element={<ClientsPage />} />
-            <Route path="clients/:id" element={<ClientDetailPage />} />
-            <Route path="billing" element={<BillingPage />} />
-            <Route path="network" element={<NetworkPage />} />
-            <Route path="logs" element={<LogsPlaceholder />} />
-            <Route path="profile" element={<ProfilePage />} />
-            <Route path="settings" element={<SettingsPage />} />
-          </Route>
-          <Route path="*" element={<NotFound />} />
-        </Routes>
-      </BrowserRouter>
-    </TooltipProvider>
-  </QueryClientProvider>
-);
+  if (!isAuthenticated) {
+    return <Navigate to="/login" replace />;
+  }
+
+  return children;
+};
+
+const App = () => {
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
+
+  return (
+    <QueryClientProvider client={queryClient}>
+      <TooltipProvider>
+        <Toaster />
+        <Sonner />
+        <BrowserRouter>
+          <Routes>
+            <Route
+              path="/login"
+              element={
+                isAuthenticated ? (
+                  <Navigate to="/dashboard" replace />
+                ) : (
+                  <LoginPage />
+                )
+              }
+            />
+            <Route
+              path="/"
+              element={
+                <RequireAuth>
+                  <MainLayout />
+                </RequireAuth>
+              }
+            >
+              <Route index element={<Navigate to="/dashboard" replace />} />
+              <Route path="dashboard" element={<DashboardPage />} />
+              <Route path="users" element={<UsersPage />} />
+              <Route path="users/:id" element={<UsersPage />} />
+              <Route path="pos" element={<POSPage />} />
+              <Route path="pos/:id" element={<POSDetailPage />} />
+              <Route path="clients" element={<ClientsPage />} />
+              <Route path="clients/:id" element={<ClientDetailPage />} />
+              <Route path="billing" element={<BillingPage />} />
+              <Route path="network" element={<NetworkPage />} />
+              <Route path="logs" element={<LogsRequestsPage />} />
+              <Route path="profile" element={<ProfilePage />} />
+              <Route path="settings" element={<SettingsPage />} />
+            </Route>
+            <Route path="*" element={<NotFound />} />
+          </Routes>
+        </BrowserRouter>
+      </TooltipProvider>
+    </QueryClientProvider>
+  );
+};
 
 export default App;

@@ -24,6 +24,7 @@ export function useInvoices(
   return useQuery({
     queryKey: invoiceKeys.list(filters),
     queryFn: () => getAllInvoices(filters),
+    enabled: filters?.clientId !== undefined ? !!filters.clientId : true,
   });
 }
 

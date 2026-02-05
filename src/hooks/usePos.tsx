@@ -26,13 +26,14 @@ import {
   AssignManagerRequest,
   Client,
   User,
+  POSFilters,
 } from "@/types/api.types";
 
 // Query keys
 export const posKeys = {
   all: ["pos"] as const,
   lists: () => [...posKeys.all, "list"] as const,
-  list: (filters?: any) => [...posKeys.lists(), { filters }] as const,
+  list: (filters?: POSFilters) => [...posKeys.lists(), { filters }] as const,
   details: () => [...posKeys.all, "detail"] as const,
   detail: (id: string) => [...posKeys.details(), id] as const,
   clients: (id: string) => [...posKeys.detail(id), "clients"] as const,

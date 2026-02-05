@@ -1,5 +1,5 @@
 import { useNavigate } from "react-router-dom";
-import { useAuthStore } from "@/store/auth-store";
+import { useStore } from "@/store/auth-store";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
@@ -18,7 +18,7 @@ interface HeaderProps {
 
 export function Header({ onMenuClick }: HeaderProps) {
   const navigate = useNavigate();
-  const { user } = useAuthStore();
+  const { user } = useStore();
 
   const { mutate: logout, isPending } = useLogout();
 

@@ -1,17 +1,17 @@
-export interface Posclient {
+export interface PosClient {
   id: string;
   posId: string;
   fullName: string;
   phone: string;
   email: string;
   address: string;
-  nationalId: null;
+  nationalId: string | null;
   connectionType: string;
-  pppoeUsername: null;
-  pppoePassword: null;
+  pppoeUsername: string | null;
+  pppoePassword: string | null;
   status: string;
   accountBalance: string;
-  autoRenewEnabled: true;
+  autoRenewEnabled: boolean;
   createdAt: string;
   updatedAt: string;
-}[]
+}

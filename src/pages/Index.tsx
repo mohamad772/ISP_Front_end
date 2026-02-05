@@ -1,8 +1,8 @@
 import { Navigate } from 'react-router-dom';
-import { useAuthStore } from '@/store/auth-store';
+import { useStore } from '@/store/auth-store';
 
 const Index = () => {
-  const { isAuthenticated } = useAuthStore();
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
   
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />;

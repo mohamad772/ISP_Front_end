@@ -1,15 +1,14 @@
 import { useState } from "react";
 import { Outlet, Navigate } from "react-router-dom";
-import { useAuthStore } from "@/store/auth-store";
+import { useStore } from "@/store/auth-store";
 import { Sidebar } from "./Sidebar";
 import { Header } from "./Header";
-import { useStore } from "../../utils/store";
 
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
-  const { access_token } = useStore.getState();
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
 
-  if (!access_token) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
 

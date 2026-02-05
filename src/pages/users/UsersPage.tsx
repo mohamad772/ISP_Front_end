@@ -1,4 +1,5 @@
-import { usersApi } from "@/api/users";
+import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { DataTable } from "@/components/common/DataTable";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
@@ -20,85 +21,227 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
-import { useUsers } from "@/hooks/useUsers";
-import type { User, UserRole } from "@/types";
+import { useUsers, useCreateUser } from "@/hooks/useUsers";
+import { usePOSList } from "@/hooks/usePos";
+import { UserRole } from "@/types/api.types";
+import type { User } from "@/types/api.types";
 import { Plus, Search, UserCircle } from "lucide-react";
-import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+
+const CAPABILITIES = [
+  "POS_CREATE",
+  "POS_READ",
+  "POS_UPDATE",
+  "POS_DELETE",
+  "CLIENTS_CREATE",
+  "CLIENTS_READ",
+  "CLIENTS_UPDATE",
+  "CLIENTS_ACTIVATE",
+  "CLIENTS_SUSPEND",
+  "CLIENTS_TERMINATE",
+  "CLIENTS_CONNECTION_TYPE_UPDATE",
+  "CLIENTS_STATIC_IP_ASSIGN",
+  "CLIENTS_STATIC_IP_RELEASE",
+  "SUBSCRIPTIONS_CREATE",
+  "SUBSCRIPTIONS_READ",
+  "SUBSCRIPTIONS_UPDATE",
+  "SUBSCRIPTIONS_TERMINATE",
+  "SUBSCRIPTIONS_RENEW",
+  "SUBSCRIPTIONS_UPGRADE",
+  "USAGE_LOGS_CREATE",
+  "USAGE_LOGS_READ",
+  "INVOICES_CREATE",
+  "INVOICES_READ",
+  "INVOICES_CANCEL",
+  "PAYMENTS_CREATE",
+  "PAYMENTS_READ",
+  "SERVICE_PLANS_CREATE",
+  "SERVICE_PLANS_READ",
+  "SERVICE_PLANS_UPDATE",
+  "SERVICE_PLANS_DELETE",
+  "STATIC_IP_CREATE",
+  "STATIC_IP_READ",
+  "STATIC_IP_UPDATE",
+  "STATIC_IP_DELETE",
+  "BANDWIDTH_POOL_READ",
+  "BANDWIDTH_POOL_UPDATE",
+  "USERS_CREATE",
+  "USERS_READ",
+  "USERS_UPDATE",
+  "USERS_ACTIVATE",
+  "USERS_DEACTIVATE",
+  "PPPOE_REQUESTS_CREATE",
+  "PPPOE_REQUESTS_READ",
+  "PPPOE_REQUESTS_APPROVE",
+  "PPPOE_REQUESTS_REJECT",
+  "AUDIT_LOGS_READ",
+  "SUSPENSION_HISTORY_READ",
+] as const;
 
 export function UsersPage() {
-  const { data: users, isLoading: Loadinguser } = useUsers();
-  const [isLoading, setIsLoading] = useState(true);
-  const [search, setSearch] = useState("");
-  const [roleFilter, setRoleFilter] = useState<string | undefined>(undefined);
-  const [isDialogOpen, setIsDialogOpen] = useState(false);
-  const [newUser, setNewUser] = useState({
-    username: "",
-    email: "",
-    fullName: "",
-    role: "viewer" as UserRole,
-  });
   const navigate = useNavigate();
   const { toast } = useToast();
 
-  const loadUsers = async () => {
-    setIsLoading(true);
+  const [search, setSearch] = useState("");
+  const [roleFilter, setRoleFilter] = useState<UserRole | undefined>(undefined);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+
+  const [newUser, setNewUser] = useState({
+    username: "",
+    email: "",
+    password: "",
+    role: UserRole.WSP_ADMIN,
+    posId: "",
+    capabilities: [] as string[],
+  });
+
+  const { data: users = [], isLoading } = useUsers({
+    search: search || undefined,
+    role: roleFilter,
+  });
+  const { data: posList = [] } = usePOSList();
+  const createUserMutation = useCreateUser();
+  const posNameById = new Map(posList.map((pos) => [pos.id, pos.name]));
+
+  // Filter users by search and role
+  const filteredUsers = users.filter((user) => {
+    if (user.role === UserRole.CLIENT) {
+      return false;
+    }
+    const matchesSearch = search
+      ? user.username.toLowerCase().includes(search.toLowerCase()) ||
+        user.email.toLowerCase().includes(search.toLowerCase())
+      : true;
+
+    const matchesRole = roleFilter ? user.role === roleFilter : true;
+
+    return matchesSearch && matchesRole;
+  });
+
+  const handleCreateUser = async () => {
+    if (isCreating) {
+      return;
+    }
     try {
-      const data = await usersApi.getAll({
-        search: search || undefined,
-        role: (roleFilter as UserRole) || undefined,
+      setIsCreating(true);
+      if (
+        (newUser.role === UserRole.POS_MANAGER ||
+          newUser.role === UserRole.CLIENT) &&
+        !newUser.posId
+      ) {
+        toast({
+          title: "POS is required for this role",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (newUser.role === UserRole.SUB_ADMIN && newUser.capabilities.length === 0) {
+        toast({
+          title: "Sub Admin must have at least one capability",
+          variant: "destructive",
+        });
+        return;
+      }
+      const payload = {
+        username: newUser.username,
+        email: newUser.email,
+        password: newUser.password,
+        role: newUser.role,
+        posId:
+          newUser.role === UserRole.POS_MANAGER || newUser.role === UserRole.CLIENT
+            ? newUser.posId || undefined
+            : undefined,
+        capabilities: newUser.capabilities.length > 0 ? newUser.capabilities : undefined,
+      };
+      await createUserMutation.mutateAsync(payload);
+      toast({ title: "User created successfully" });
+      setIsDialogOpen(false);
+      setNewUser({
+        username: "",
+        email: "",
+        password: "",
+        role: UserRole.WSP_ADMIN,
+        posId: "",
+        capabilities: [],
       });
+    } catch (error) {
+      const rawMessage =
+        (error as { response?: { data?: { message?: string | string[] } } })
+          ?.response?.data?.message;
+      const message = Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : rawMessage || "Failed to create user";
+      toast({ title: message, variant: "destructive" });
     } finally {
-      setIsLoading(false);
+      setIsCreating(false);
     }
   };
 
-  useEffect(() => {
-    loadUsers();
-  }, [search, roleFilter]);
-
-  const handleCreateUser = async () => {
-    try {
-      await usersApi.create(newUser);
-      toast({ title: "User created successfully" });
-      setIsDialogOpen(false);
-      setNewUser({ username: "", email: "", fullName: "", role: "viewer" });
-      loadUsers();
-    } catch {
-      toast({ title: "Failed to create user", variant: "destructive" });
+  const toggleCapability = (capability: string) => {
+    if (newUser.capabilities.includes(capability)) {
+      setNewUser({
+        ...newUser,
+        capabilities: newUser.capabilities.filter((c) => c !== capability),
+      });
+      return;
     }
+    setNewUser({
+      ...newUser,
+      capabilities: [...newUser.capabilities, capability],
+    });
   };
 
   const columns = [
     {
-      key: "fullName",
-      header: "Name",
+      key: "username",
+      header: "User",
       render: (user: User) => (
         <div className="flex items-center gap-3">
           <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
             <UserCircle className="w-5 h-5 text-primary" />
           </div>
           <div>
-            <p className="font-medium">{user.fullName}</p>
+            <p className="font-medium">{user.username}</p>
             <p className="text-xs text-muted-foreground">{user.email}</p>
           </div>
         </div>
       ),
     },
-    { key: "username", header: "Username" },
     {
       key: "role",
       header: "Role",
+      className: "w-40",
       render: (user: User) => (
         <span className="capitalize badge-info">
-          {user.role.replace("_", " ")}
+          {user.role.replace("_", " ").toLowerCase()}
         </span>
       ),
     },
     {
-      key: "posName",
+      key: "pos",
       header: "POS",
-      render: (user: User) => user.posName || "-",
+      render: (user: User) =>
+        user.role === UserRole.POS_MANAGER
+          ? user.pos?.name || (user.posId ? posNameById.get(user.posId) : undefined) || "-"
+          : "-",
+    },
+    {
+      key: "capabilities",
+      header: "Capabilities",
+      render: (user: User) => {
+        if (user.role !== UserRole.SUB_ADMIN) {
+          return "-";
+        }
+        if (!user.capabilities || user.capabilities.length === 0) {
+          return "-";
+        }
+        const text = user.capabilities.join(", ");
+        return (
+          <span className="text-xs text-muted-foreground" title={text}>
+            {text}
+          </span>
+        );
+      },
     },
     {
       key: "isActive",
@@ -108,12 +251,9 @@ export function UsersPage() {
       ),
     },
     {
-      key: "lastLogin",
-      header: "Last Login",
-      render: (user: User) =>
-        user.lastLogin
-          ? new Date(user.lastLogin).toLocaleDateString()
-          : "Never",
+      key: "createdAt",
+      header: "Created",
+      render: (user: User) => new Date(user.createdAt).toLocaleDateString(),
     },
   ];
 
@@ -136,15 +276,6 @@ export function UsersPage() {
               </DialogHeader>
               <div className="space-y-4 py-4">
                 <div className="space-y-2">
-                  <Label>Full Name</Label>
-                  <Input
-                    value={newUser.fullName}
-                    onChange={(e) =>
-                      setNewUser({ ...newUser, fullName: e.target.value })
-                    }
-                  />
-                </div>
-                <div className="space-y-2">
                   <Label>Username</Label>
                   <Input
                     value={newUser.username}
@@ -164,26 +295,94 @@ export function UsersPage() {
                   />
                 </div>
                 <div className="space-y-2">
+                  <Label>Password</Label>
+                  <Input
+                    type="password"
+                    value={newUser.password}
+                    onChange={(e) =>
+                      setNewUser({ ...newUser, password: e.target.value })
+                    }
+                  />
+                </div>
+                <div className="space-y-2">
                   <Label>Role</Label>
                   <Select
                     value={newUser.role}
                     onValueChange={(v) =>
-                      setNewUser({ ...newUser, role: v as UserRole })
+                      setNewUser({
+                        ...newUser,
+                        role: v as UserRole,
+                        posId: v === "POS_MANAGER" ? newUser.posId : "",
+                      })
                     }
                   >
                     <SelectTrigger>
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="admin">Admin</SelectItem>
-                      <SelectItem value="pos_manager">POS Manager</SelectItem>
-                      <SelectItem value="viewer">Viewer</SelectItem>
-                      <SelectItem value="support">Support</SelectItem>
+                      <SelectItem value="WSP_ADMIN">WSP Admin</SelectItem>
+                      <SelectItem value="SUB_ADMIN">Sub Admin</SelectItem>
+                      <SelectItem value="POS_MANAGER">POS Manager</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
-                <Button className="w-full" onClick={handleCreateUser}>
-                  Create User
+                {(newUser.role === "POS_MANAGER" ||
+                  newUser.role === "CLIENT") && (
+                  <div className="space-y-2">
+                    <Label>Assign POS</Label>
+                    <Select
+                      value={newUser.posId}
+                      onValueChange={(v) =>
+                        setNewUser({ ...newUser, posId: v })
+                      }
+                    >
+                      <SelectTrigger>
+                        <SelectValue placeholder="Select POS" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {posList.map((pos) => (
+                          <SelectItem key={pos.id} value={pos.id}>
+                            {pos.name}
+                          </SelectItem>
+                        ))}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
+                {newUser.role === UserRole.SUB_ADMIN && (
+                  <div className="space-y-2">
+                    <Label>Capabilities</Label>
+                    <div className="max-h-48 overflow-y-auto rounded-md border p-2 space-y-2">
+                      {CAPABILITIES.map((cap) => {
+                        const checked = newUser.capabilities.includes(cap);
+                        return (
+                          <label
+                            key={cap}
+                            className="flex items-center gap-2 text-sm cursor-pointer"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleCapability(cap)}
+                            />
+                            <span>{cap}</span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    {newUser.capabilities.length > 0 && (
+                      <div className="flex flex-wrap gap-2">
+                        {newUser.capabilities.map((cap) => (
+                          <span key={cap} className="badge-info text-xs">
+                            {cap}
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                )}
+                <Button className="w-full" onClick={handleCreateUser} disabled={isCreating}>
+                  {isCreating ? "Creating..." : "Create User"}
                 </Button>
               </div>
             </DialogContent>
@@ -202,23 +401,27 @@ export function UsersPage() {
             className="pl-10"
           />
         </div>
-        <Select value={roleFilter} onValueChange={setRoleFilter}>
+        <Select
+          value={roleFilter ?? "all"}
+          onValueChange={(v) =>
+            setRoleFilter(v === "all" ? undefined : (v as UserRole))
+          }
+        >
           <SelectTrigger className="w-full sm:w-40">
             <SelectValue placeholder="All Roles" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={"undefined"}>All Roles</SelectItem>
-            <SelectItem value="admin">Admin</SelectItem>
-            <SelectItem value="pos_manager">POS Manager</SelectItem>
-            <SelectItem value="viewer">Viewer</SelectItem>
-            <SelectItem value="support">Support</SelectItem>
+            <SelectItem value="all">All Roles</SelectItem>
+            <SelectItem value="WSP_ADMIN">WSP Admin</SelectItem>
+            <SelectItem value="SUB_ADMIN">Sub Admin</SelectItem>
+            <SelectItem value="POS_MANAGER">POS Manager</SelectItem>
           </SelectContent>
         </Select>
       </div>
 
       <DataTable
         columns={columns}
-        data={users}
+        data={filteredUsers}
         isLoading={isLoading}
         emptyMessage="No users found"
         onRowClick={(user) => navigate(`/users/${user.id}`)}
