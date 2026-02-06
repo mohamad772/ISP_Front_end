@@ -41,11 +41,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useInvoices, useCreateInvoice } from "@/hooks/useInvoices";
 import { usePayments, useCreatePayment } from "@/hooks/usepayments";
 import type { ServicePlan, Invoice, Payment } from "@/types/api.types";
-import {
-  PaymentMethod,
-  ServiceType,
-  DurationType,
-} from "@/types/api.types";
+import { PaymentMethod, ServiceType, DurationType } from "@/types/api.types";
 import {
   useServicePlans,
   useCreateServicePlan,
@@ -108,8 +104,7 @@ export function BillingPage() {
   const isLoading = plansLoading || invoicesLoading || paymentsLoading;
 
   const totalRevenue = payments.reduce(
-    (sum, p) =>
-      sum + Number(p.amountPaid || 0) + Number(p.extraAmount || 0),
+    (sum, p) => sum + Number(p.amountPaid || 0) + Number(p.extraAmount || 0),
     0,
   );
   const unpaidAmount = invoices
@@ -424,7 +419,10 @@ export function BillingPage() {
                       min="0"
                       value={invoiceForm.amount}
                       onChange={(e) =>
-                        setInvoiceForm({ ...invoiceForm, amount: e.target.value })
+                        setInvoiceForm({
+                          ...invoiceForm,
+                          amount: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -434,7 +432,10 @@ export function BillingPage() {
                       type="date"
                       value={invoiceForm.issueDate}
                       onChange={(e) =>
-                        setInvoiceForm({ ...invoiceForm, issueDate: e.target.value })
+                        setInvoiceForm({
+                          ...invoiceForm,
+                          issueDate: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -444,7 +445,10 @@ export function BillingPage() {
                       type="date"
                       value={invoiceForm.dueDate}
                       onChange={(e) =>
-                        setInvoiceForm({ ...invoiceForm, dueDate: e.target.value })
+                        setInvoiceForm({
+                          ...invoiceForm,
+                          dueDate: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -453,7 +457,10 @@ export function BillingPage() {
                     <Input
                       value={invoiceForm.notes}
                       onChange={(e) =>
-                        setInvoiceForm({ ...invoiceForm, notes: e.target.value })
+                        setInvoiceForm({
+                          ...invoiceForm,
+                          notes: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -510,7 +517,10 @@ export function BillingPage() {
                       min="0"
                       value={paymentForm.amountPaid}
                       onChange={(e) =>
-                        setPaymentForm({ ...paymentForm, amountPaid: e.target.value })
+                        setPaymentForm({
+                          ...paymentForm,
+                          amountPaid: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -530,7 +540,9 @@ export function BillingPage() {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="CASH">Cash</SelectItem>
-                        <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                        <SelectItem value="BANK_TRANSFER">
+                          Bank Transfer
+                        </SelectItem>
                         <SelectItem value="CARD">Card</SelectItem>
                         <SelectItem value="ONLINE">Online</SelectItem>
                       </SelectContent>
@@ -553,7 +565,10 @@ export function BillingPage() {
                     <Input
                       value={paymentForm.notes}
                       onChange={(e) =>
-                        setPaymentForm({ ...paymentForm, notes: e.target.value })
+                        setPaymentForm({
+                          ...paymentForm,
+                          notes: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -592,7 +607,10 @@ export function BillingPage() {
                     <Input
                       value={planForm.description}
                       onChange={(e) =>
-                        setPlanForm({ ...planForm, description: e.target.value })
+                        setPlanForm({
+                          ...planForm,
+                          description: e.target.value,
+                        })
                       }
                     />
                   </div>
@@ -601,7 +619,10 @@ export function BillingPage() {
                     <Select
                       value={planForm.serviceType}
                       onValueChange={(v) =>
-                        setPlanForm({ ...planForm, serviceType: v as ServiceType })
+                        setPlanForm({
+                          ...planForm,
+                          serviceType: v as ServiceType,
+                        })
                       }
                     >
                       <SelectTrigger>
@@ -618,14 +639,19 @@ export function BillingPage() {
                     <Select
                       value={planForm.durationType}
                       onValueChange={(v) =>
-                        setPlanForm({ ...planForm, durationType: v as DurationType })
+                        setPlanForm({
+                          ...planForm,
+                          durationType: v as DurationType,
+                        })
                       }
                     >
                       <SelectTrigger>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="HALF_MONTHLY">Half Monthly</SelectItem>
+                        <SelectItem value="HALF_MONTHLY">
+                          Half Monthly
+                        </SelectItem>
                         <SelectItem value="MONTHLY">Monthly</SelectItem>
                         <SelectItem value="QUARTERLY">Quarterly</SelectItem>
                         <SelectItem value="HALF_ANNUAL">Half Annual</SelectItem>
@@ -640,7 +666,10 @@ export function BillingPage() {
                       min="1"
                       value={planForm.durationDays}
                       onChange={(e) =>
-                        setPlanForm({ ...planForm, durationDays: e.target.value })
+                        setPlanForm({
+                          ...planForm,
+                          durationDays: e.target.value,
+                        })
                       }
                     />
                   </div>

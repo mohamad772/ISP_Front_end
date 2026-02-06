@@ -15,9 +15,9 @@ import { BillingPage } from "@/pages/billing/BillingPage";
 import { NetworkPage } from "@/pages/network/NetworkPage";
 import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
-import { LogsRequestsPage } from "@/pages/logs/LogsRequestsPage";
 import { useStore } from "@/store/auth-store";
 import NotFound from "./pages/NotFound";
+import { LogsRequestsPage } from "./pages/LogsAndRequests/LogsRequestsPage";
 
 const queryClient = new QueryClient();
 

@@ -66,7 +66,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   return (
     <aside
       className={cn(
-        "bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-300 border-r border-sidebar-border",
+        "bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-300 border-r border-sidebar-border sticky top-0 h-screen shrink-0",
         collapsed ? "w-16" : "w-64",
         "hidden md:flex",
       )}
