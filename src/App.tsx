@@ -17,7 +17,7 @@ import { ProfilePage } from "@/pages/profile/ProfilePage";
 import { SettingsPage } from "@/pages/settings/SettingsPage";
 import { useStore } from "@/store/auth-store";
 import NotFound from "./pages/NotFound";
-import { LogsRequestsPage } from "./pages/LogsAndRequests/LogsRequestsPage";
+import { LogsRequestsPage } from "./pages/LogsandRequests/LogsRequestsPage";
 
 const queryClient = new QueryClient();
 
