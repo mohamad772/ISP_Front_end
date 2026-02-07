@@ -17,7 +17,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Settings, Bell, Shield, Database } from "lucide-react";
+import {
+  Settings,
+  Bell,
+  Shield,
+  Database,
+  Activity,
+  Loader2,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useSettings,
@@ -134,39 +141,85 @@ export function SettingsPage() {
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
-      <PageHeader title="Settings" description="Configure system preferences" />
+    <div className="space-y-6 animate-in fade-in slide-in-from-bottom-4 duration-1000">
+      {/* Animated Background Elements */}
+      <div className="fixed inset-0 overflow-hidden pointer-events-none">
+        <div
+          className="absolute top-20 right-10 w-96 h-96 bg-primary/5 rounded-full blur-3xl animate-pulse"
+          style={{ animationDuration: "5s" }}
+        />
+        <div
+          className="absolute bottom-40 left-20 w-80 h-80 bg-primary/5 rounded-full blur-3xl animate-pulse"
+          style={{ animationDuration: "7s", animationDelay: "1s" }}
+        />
+        <div
+          className="absolute top-1/3 left-1/3 w-72 h-72 bg-primary/3 rounded-full blur-3xl animate-pulse"
+          style={{ animationDuration: "6s", animationDelay: "2s" }}
+        />
+      </div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Settings className="w-5 h-5" />
-              General
+      <div className="relative z-10">
+        <PageHeader
+          title="Settings"
+          description="Configure system preferences"
+        />
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-2 relative z-10">
+        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-left-8 duration-1000 delay-100">
+          {/* Animated gradient background */}
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+
+          {/* Floating orb */}
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 -translate-y-1/2 translate-x-1/2 group-hover:scale-150" />
+
+          {/* Shimmer effect */}
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-2000 ease-in-out" />
+          </div>
+
+          <CardHeader className="relative z-10">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg">
+                <Settings className="w-5 h-5 text-primary" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-ping" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
+              </div>
+              <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                General
+              </span>
             </CardTitle>
             <CardDescription>Basic system configuration</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Enable MFA</Label>
-                <p className="text-sm text-muted-foreground">Require multi-factor authentication</p>
+          <CardContent className="space-y-6 relative z-10">
+            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-200">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative z-10">
+                <Label className="font-semibold">Enable MFA</Label>
+                <p className="text-sm text-muted-foreground">
+                  Require multi-factor authentication
+                </p>
               </div>
               <Switch
                 checked={form.enableMfa}
                 onCheckedChange={(v) => handleUpdate({ enableMfa: v })}
                 disabled={isLoading}
+                className="relative z-10"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Session Timeout</Label>
-                <p className="text-sm text-muted-foreground">Auto-logout after inactivity</p>
+
+            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-250">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative z-10">
+                <Label className="font-semibold">Session Timeout</Label>
+                <p className="text-sm text-muted-foreground">
+                  Auto-logout after inactivity
+                </p>
               </div>
               <Input
                 type="number"
                 min="1"
-                className="w-24"
+                className="w-24 relative z-10 transition-all duration-300 focus:ring-2 focus:ring-primary/30"
                 value={form.sessionTimeoutMinutes}
                 onChange={(e) =>
                   setForm({
@@ -176,50 +229,82 @@ export function SettingsPage() {
                 }
                 onBlur={() =>
                   handleUpdate({
-                    sessionTimeoutMinutes: Number(form.sessionTimeoutMinutes || 0),
+                    sessionTimeoutMinutes: Number(
+                      form.sessionTimeoutMinutes || 0,
+                    ),
                   })
                 }
                 disabled={isLoading}
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Audit Logging</Label>
-                <p className="text-sm text-muted-foreground">Track all system actions</p>
+
+            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative z-10">
+                <Label className="font-semibold">Audit Logging</Label>
+                <p className="text-sm text-muted-foreground">
+                  Track all system actions
+                </p>
               </div>
               <Switch
                 checked={form.auditLoggingEnabled}
-                onCheckedChange={(v) => handleUpdate({ auditLoggingEnabled: v })}
+                onCheckedChange={(v) =>
+                  handleUpdate({ auditLoggingEnabled: v })
+                }
                 disabled={isLoading}
+                className="relative z-10"
               />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Bell className="w-5 h-5" />
-              Notifications
+        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-right-8 duration-1000 delay-100">
+          <div className="absolute inset-0 bg-gradient-to-bl from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="absolute bottom-0 left-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 translate-y-1/2 -translate-x-1/2 group-hover:scale-150" />
+
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent translate-x-full group-hover:-translate-x-full transition-transform duration-2000 ease-in-out" />
+          </div>
+
+          <CardHeader className="relative z-10">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg">
+                <Bell className="w-5 h-5 text-primary" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-ping" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
+              </div>
+              <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                Notifications
+              </span>
             </CardTitle>
-            <CardDescription>Alert and notification preferences</CardDescription>
+            <CardDescription>
+              Alert and notification preferences
+            </CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Email Alerts</Label>
-                <p className="text-sm text-muted-foreground">Send critical alerts via email</p>
+          <CardContent className="space-y-6 relative z-10">
+            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-right duration-700 delay-200">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative z-10">
+                <Label className="font-semibold">Email Alerts</Label>
+                <p className="text-sm text-muted-foreground">
+                  Send critical alerts via email
+                </p>
               </div>
               <Switch
                 checked={form.emailAlertsEnabled}
                 onCheckedChange={(v) => handleUpdate({ emailAlertsEnabled: v })}
                 disabled={isLoading}
+                className="relative z-10"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Payment Reminders</Label>
-                <p className="text-sm text-muted-foreground">Notify on overdue invoices</p>
+
+            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-right duration-700 delay-250">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative z-10">
+                <Label className="font-semibold">Payment Reminders</Label>
+                <p className="text-sm text-muted-foreground">
+                  Notify on overdue invoices
+                </p>
               </div>
               <Switch
                 checked={form.paymentRemindersEnabled}
@@ -227,12 +312,17 @@ export function SettingsPage() {
                   handleUpdate({ paymentRemindersEnabled: v })
                 }
                 disabled={isLoading}
+                className="relative z-10"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Bandwidth Warnings</Label>
-                <p className="text-sm text-muted-foreground">Alert when usage exceeds 80%</p>
+
+            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-right duration-700 delay-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative z-10">
+                <Label className="font-semibold">Bandwidth Warnings</Label>
+                <p className="text-sm text-muted-foreground">
+                  Alert when usage exceeds 80%
+                </p>
               </div>
               <Switch
                 checked={form.bandwidthWarningsEnabled}
@@ -240,24 +330,41 @@ export function SettingsPage() {
                   handleUpdate({ bandwidthWarningsEnabled: v })
                 }
                 disabled={isLoading}
+                className="relative z-10"
               />
             </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Shield className="w-5 h-5" />
-              Security
+        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-left-8 duration-1000 delay-150">
+          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 -translate-y-1/2 translate-x-1/2 group-hover:scale-150" />
+
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-2000 ease-in-out" />
+          </div>
+
+          <CardHeader className="relative z-10">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg">
+                <Shield className="w-5 h-5 text-primary" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-ping" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
+              </div>
+              <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                Security
+              </span>
             </CardTitle>
             <CardDescription>Security and access control</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-6">
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>IP Whitelisting</Label>
-                <p className="text-sm text-muted-foreground">Restrict admin access by IP</p>
+          <CardContent className="space-y-6 relative z-10">
+            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-250">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative z-10">
+                <Label className="font-semibold">IP Whitelisting</Label>
+                <p className="text-sm text-muted-foreground">
+                  Restrict admin access by IP
+                </p>
               </div>
               <Switch
                 checked={form.ipWhitelistingEnabled}
@@ -265,17 +372,22 @@ export function SettingsPage() {
                   handleUpdate({ ipWhitelistingEnabled: v })
                 }
                 disabled={isLoading}
+                className="relative z-10"
               />
             </div>
-            <div className="flex items-center justify-between">
-              <div>
-                <Label>Password Expiry</Label>
-                <p className="text-sm text-muted-foreground">Force password change every 90 days</p>
+
+            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-300">
+              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
+              <div className="relative z-10">
+                <Label className="font-semibold">Password Expiry</Label>
+                <p className="text-sm text-muted-foreground">
+                  Force password change every 90 days
+                </p>
               </div>
               <Input
                 type="number"
                 min="1"
-                className="w-24"
+                className="w-24 relative z-10 transition-all duration-300 focus:ring-2 focus:ring-primary/30"
                 value={form.passwordExpiryDays}
                 onChange={(e) =>
                   setForm({
@@ -291,81 +403,162 @@ export function SettingsPage() {
                 disabled={isLoading}
               />
             </div>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleViewSessions}
-              disabled={sessionsMutation.isPending}
-            >
-              View Active Sessions
-            </Button>
+
+            <div className="animate-in slide-in-from-bottom duration-700 delay-350">
+              <Button
+                variant="outline"
+                className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
+                onClick={handleViewSessions}
+                disabled={sessionsMutation.isPending}
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
+                <span className="relative z-10 flex items-center justify-center gap-2">
+                  {sessionsMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Loading...
+                    </>
+                  ) : (
+                    <>
+                      <Activity className="w-4 h-4" />
+                      View Active Sessions
+                    </>
+                  )}
+                </span>
+              </Button>
+            </div>
           </CardContent>
         </Card>
 
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2">
-              <Database className="w-5 h-5" />
-              System
+        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-right-8 duration-1000 delay-150">
+          <div className="absolute inset-0 bg-gradient-to-bl from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
+          <div className="absolute bottom-0 left-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 translate-y-1/2 -translate-x-1/2 group-hover:scale-150" />
+
+          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
+            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent translate-x-full group-hover:-translate-x-full transition-transform duration-2000 ease-in-out" />
+          </div>
+
+          <CardHeader className="relative z-10">
+            <CardTitle className="flex items-center gap-3 text-xl">
+              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg">
+                <Database className="w-5 h-5 text-primary" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-ping" />
+                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
+              </div>
+              <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
+                System
+              </span>
             </CardTitle>
             <CardDescription>Database and maintenance</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleExportData}
-              disabled={exportMutation.isPending}
-            >
-              Export Data
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleHealthCheck}
-              disabled={healthMutation.isPending}
-            >
-              System Health Check
-            </Button>
-            <Button
-              variant="outline"
-              className="w-full"
-              onClick={handleClearCache}
-              disabled={clearCacheMutation.isPending}
-            >
-              Clear Cache
-            </Button>
-            <div className="pt-4 border-t">
-              <p className="text-xs text-muted-foreground">
-                System Version: {form.systemVersion || "1.0.0"}
-              </p>
-              <p className="text-xs text-muted-foreground">
-                Last Backup:{" "}
-                {form.lastBackupAt
-                  ? new Date(form.lastBackupAt).toLocaleString()
-                  : "Never"}
-              </p>
+          <CardContent className="space-y-4 relative z-10">
+            <div className="animate-in slide-in-from-right duration-700 delay-250">
+              <Button
+                variant="outline"
+                className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
+                onClick={handleExportData}
+                disabled={exportMutation.isPending}
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
+                <span className="relative z-10">
+                  {exportMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
+                      Exporting...
+                    </>
+                  ) : (
+                    "Export Data"
+                  )}
+                </span>
+              </Button>
+            </div>
+
+            <div className="animate-in slide-in-from-right duration-700 delay-300">
+              <Button
+                variant="outline"
+                className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
+                onClick={handleHealthCheck}
+                disabled={healthMutation.isPending}
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
+                <span className="relative z-10">
+                  {healthMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
+                      Checking...
+                    </>
+                  ) : (
+                    "System Health Check"
+                  )}
+                </span>
+              </Button>
+            </div>
+
+            <div className="animate-in slide-in-from-right duration-700 delay-350">
+              <Button
+                variant="outline"
+                className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
+                onClick={handleClearCache}
+                disabled={clearCacheMutation.isPending}
+              >
+                <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
+                <span className="relative z-10">
+                  {clearCacheMutation.isPending ? (
+                    <>
+                      <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
+                      Clearing...
+                    </>
+                  ) : (
+                    "Clear Cache"
+                  )}
+                </span>
+              </Button>
+            </div>
+
+            <div className="pt-4 border-t animate-in fade-in duration-700 delay-400">
+              <div className="space-y-2 p-4 rounded-xl bg-muted/30">
+                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  System Version:{" "}
+                  <span className="font-semibold text-foreground">
+                    {form.systemVersion || "1.0.0"}
+                  </span>
+                </p>
+                <p className="text-xs text-muted-foreground flex items-center gap-2">
+                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                  Last Backup:{" "}
+                  <span className="font-semibold text-foreground">
+                    {form.lastBackupAt
+                      ? new Date(form.lastBackupAt).toLocaleString()
+                      : "Never"}
+                  </span>
+                </p>
+              </div>
             </div>
           </CardContent>
         </Card>
       </div>
 
       <Dialog open={healthDialogOpen} onOpenChange={setHealthDialogOpen}>
-        <DialogContent>
+        <DialogContent className="animate-in fade-in zoom-in duration-300">
           <DialogHeader>
-            <DialogTitle>System Health</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary" />
+              System Health
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-2">
             {healthEntries.length === 0 && (
               <p className="text-sm text-muted-foreground">No data</p>
             )}
-            {healthEntries.map(([key, value]) => (
+            {healthEntries.map(([key, value], i) => (
               <div
                 key={key}
-                className="flex items-center justify-between text-sm"
+                className="flex items-center justify-between text-sm p-3 rounded-lg bg-muted/30 hover:bg-muted/50 transition-all duration-300 animate-in slide-in-from-left"
+                style={{ animationDelay: `${i * 50}ms` }}
               >
-                <span className="text-muted-foreground">{key}</span>
-                <span className="font-medium">
+                <span className="text-muted-foreground font-medium">{key}</span>
+                <span className="font-semibold">
                   {typeof value === "string" || typeof value === "number"
                     ? String(value)
                     : JSON.stringify(value)}
@@ -377,30 +570,42 @@ export function SettingsPage() {
       </Dialog>
 
       <Dialog open={sessionsDialogOpen} onOpenChange={setSessionsDialogOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-2xl max-h-[90vh] overflow-y-auto animate-in fade-in zoom-in duration-300">
           <DialogHeader>
-            <DialogTitle>Active Sessions</DialogTitle>
+            <DialogTitle className="flex items-center gap-2">
+              <Activity className="w-5 h-5 text-primary" />
+              Active Sessions
+            </DialogTitle>
           </DialogHeader>
           <div className="space-y-3">
             {activeSessions.length === 0 ? (
-              <p className="text-sm text-muted-foreground">No active sessions</p>
+              <p className="text-sm text-muted-foreground">
+                No active sessions
+              </p>
             ) : (
-              activeSessions.map((session) => (
+              activeSessions.map((session, i) => (
                 <div
                   key={session.id}
-                  className="rounded-md border p-3 text-sm space-y-1"
+                  className="group relative overflow-hidden rounded-xl border p-4 text-sm space-y-2 bg-muted/20 hover:bg-muted/40 transition-all duration-500 animate-in slide-in-from-bottom"
+                  style={{ animationDelay: `${i * 50}ms` }}
                 >
-                  <p className="font-medium">
+                  <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
+                  <p className="font-semibold text-base relative z-10">
                     {session.username || session.userId}
                   </p>
-                  <p className="text-muted-foreground">
-                    IP: {session.ipAddress || "N/A"}
+                  <p className="text-muted-foreground relative z-10">
+                    IP:{" "}
+                    <span className="font-medium text-foreground">
+                      {session.ipAddress || "N/A"}
+                    </span>
                   </p>
-                  <p className="text-muted-foreground">
+                  <p className="text-muted-foreground relative z-10">
                     Last Active:{" "}
-                    {session.lastActiveAt
-                      ? new Date(session.lastActiveAt).toLocaleString()
-                      : "N/A"}
+                    <span className="font-medium text-foreground">
+                      {session.lastActiveAt
+                        ? new Date(session.lastActiveAt).toLocaleString()
+                        : "N/A"}
+                    </span>
                   </p>
                 </div>
               ))

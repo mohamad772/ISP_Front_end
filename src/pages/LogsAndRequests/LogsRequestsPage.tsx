@@ -483,10 +483,6 @@ export function LogsRequestsPage() {
                     className="pl-10"
                   />
                 </div>
-                <Button variant="outline" className="gap-2 sm:w-auto">
-                  <Filter className="h-4 w-4" />
-                  Filters
-                </Button>
               </div>
 
               {/* Table */}

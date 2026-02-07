@@ -51,6 +51,17 @@ import {
 } from "@/hooks/useServicePlan";
 import { useClients } from "@/hooks/useclients";
 
+const AnimatedBackground = () => {
+  return (
+    <div className="absolute inset-0 overflow-hidden pointer-events-none">
+      <div className="absolute -top-24 -left-24 w-96 h-96 bg-primary/25 rounded-full blur-3xl animate-pulse" />
+      <div className="absolute top-1/2 -right-32 w-80 h-80 bg-blue-500/15 rounded-full blur-3xl animate-pulse delay-1000" />
+      <div className="absolute -bottom-24 left-1/3 w-72 h-72 bg-purple-500/15 rounded-full blur-3xl animate-pulse delay-2000" />
+      <div className="absolute inset-0 bg-[linear-gradient(to_right,#80808012_1px,transparent_1px),linear-gradient(to_bottom,#80808012_1px,transparent_1px)] bg-[size:24px_24px]" />
+    </div>
+  );
+};
+
 export function BillingPage() {
   const { toast } = useToast();
   const { data: plans = [], isLoading: plansLoading } = useServicePlans();
@@ -375,6 +386,13 @@ export function BillingPage() {
 
   return (
     <div className="space-y-6 animate-fade-in">
+      <style>{`
+        .glass-morphism {
+          background: rgba(255, 255, 255, 0.05);
+          backdrop-filter: blur(10px);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+        }
+      `}</style>
       <PageHeader
         title="Billing & Plans"
         description="Manage service plans, invoices, and payments"
@@ -387,11 +405,14 @@ export function BillingPage() {
                   Create Invoice
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create Invoice</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
+              <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
+                <AnimatedBackground />
+                <div className="relative glass-morphism p-6 border-b border-white/10">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">Create Invoice</DialogTitle>
+                  </DialogHeader>
+                </div>
+                <div className="relative p-6 space-y-4 max-h-[calc(90vh-6rem)] overflow-y-auto">
                   <div className="space-y-2">
                     <Label>Client</Label>
                     <Select
@@ -480,11 +501,16 @@ export function BillingPage() {
                   Record Payment
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Record Payment</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
+              <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
+                <AnimatedBackground />
+                <div className="relative glass-morphism p-6 border-b border-white/10">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">
+                      Record Payment
+                    </DialogTitle>
+                  </DialogHeader>
+                </div>
+                <div className="relative p-6 space-y-4 max-h-[calc(90vh-6rem)] overflow-y-auto">
                   <div className="space-y-2">
                     <Label>Invoice</Label>
                     <Select
@@ -588,11 +614,14 @@ export function BillingPage() {
                   Add Plan
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
-                <DialogHeader>
-                  <DialogTitle>Create Plan</DialogTitle>
-                </DialogHeader>
-                <div className="space-y-4 py-2">
+              <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
+                <AnimatedBackground />
+                <div className="relative glass-morphism p-6 border-b border-white/10">
+                  <DialogHeader>
+                    <DialogTitle className="text-xl">Create Plan</DialogTitle>
+                  </DialogHeader>
+                </div>
+                <div className="relative p-6 space-y-4 max-h-[calc(90vh-6rem)] overflow-y-auto">
                   <div className="space-y-2">
                     <Label>Plan Name</Label>
                     <Input
@@ -879,11 +908,14 @@ export function BillingPage() {
       </Tabs>
 
       <Dialog open={isEditPlanOpen} onOpenChange={setIsEditPlanOpen}>
-        <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Plan</DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 py-2">
+        <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
+          <AnimatedBackground />
+          <div className="relative glass-morphism p-6 border-b border-white/10">
+            <DialogHeader>
+              <DialogTitle className="text-xl">Edit Plan</DialogTitle>
+            </DialogHeader>
+          </div>
+          <div className="relative p-6 space-y-4 max-h-[calc(90vh-6rem)] overflow-y-auto">
             <div className="space-y-2">
               <Label>Plan Name</Label>
               <Input
