@@ -514,16 +514,8 @@ export interface UpdateBandwidthPoolRequest {
 // ============================================
 
 export interface SystemSettings {
-  enableMfa: boolean;
-  sessionTimeoutMinutes: number;
   auditLoggingEnabled: boolean;
-  emailAlertsEnabled: boolean;
-  paymentRemindersEnabled: boolean;
-  bandwidthWarningsEnabled: boolean;
-  ipWhitelistingEnabled: boolean;
   passwordExpiryDays: number;
-  systemVersion?: string;
-  lastBackupAt?: string | null;
 }
 
 export type UpdateSystemSettingsRequest = Partial<SystemSettings>;

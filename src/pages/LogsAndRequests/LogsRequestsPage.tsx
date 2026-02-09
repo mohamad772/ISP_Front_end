@@ -30,6 +30,7 @@ import {
   useApprovePPPoERequest,
   useRejectPPPoERequest,
   useCompletePPPoERequest,
+  useCreatePPPoERequest,
 } from "@/hooks/usepppoeRequests";
 import type { AuditLog, PPPoERequest } from "@/types/api.types";
 import { PPPoERequestStatus } from "@/types/api.types";
@@ -59,8 +60,14 @@ export function LogsRequestsPage() {
     type: RequestActionType;
     request: PPPoERequest;
   } | null>(null);
+  const [credentialsDialog, setCredentialsDialog] = useState<{
+    request: PPPoERequest;
+  } | null>(null);
   const [note, setNote] = useState("");
   const [rejectionReason, setRejectionReason] = useState("");
+  const [newUsername, setNewUsername] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [credentialsReason, setCredentialsReason] = useState("");
 
   const { data: auditLogs = [], isLoading: logsLoading } = useAuditLogs();
   const { data: pppoeRequests = [], isLoading: requestsLoading } =
@@ -68,6 +75,7 @@ export function LogsRequestsPage() {
   const approveMutation = useApprovePPPoERequest();
   const rejectMutation = useRejectPPPoERequest();
   const completeMutation = useCompletePPPoERequest();
+  const createRequestMutation = useCreatePPPoERequest();
 
   const filteredLogs = useMemo(() => {
     if (!search.trim()) return auditLogs;
@@ -261,6 +269,20 @@ export function LogsRequestsPage() {
             <div className="flex gap-2">
               <Button
                 size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  setNewUsername(req.newUsername || "");
+                  setNewPassword(req.newPassword || "");
+                  setCredentialsReason(req.reason || "");
+                  setCredentialsDialog({ request: req });
+                }}
+              >
+                <User className="h-4 w-4" />
+                Edit Credentials
+              </Button>
+              <Button
+                size="sm"
                 className="gap-2"
                 onClick={() => {
                   setNote("");
@@ -289,19 +311,35 @@ export function LogsRequestsPage() {
         }
         if (req.status === PPPoERequestStatus.APPROVED) {
           return (
-            <Button
-              size="sm"
-              variant="outline"
-              className="gap-2"
-              onClick={() => {
-                setNote("");
-                setRejectionReason("");
-                setActionDialog({ type: "complete", request: req });
-              }}
-            >
-              <CheckCircle2 className="h-4 w-4" />
-              Complete
-            </Button>
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  setNewUsername(req.newUsername || "");
+                  setNewPassword(req.newPassword || "");
+                  setCredentialsReason(req.reason || "");
+                  setCredentialsDialog({ request: req });
+                }}
+              >
+                <User className="h-4 w-4" />
+                Edit Credentials
+              </Button>
+              <Button
+                size="sm"
+                variant="outline"
+                className="gap-2"
+                onClick={() => {
+                  setNote("");
+                  setRejectionReason("");
+                  setActionDialog({ type: "complete", request: req });
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                Complete
+              </Button>
+            </div>
           );
         }
         return <span className="text-muted-foreground text-sm">-</span>;
@@ -354,6 +392,40 @@ export function LogsRequestsPage() {
       setActionDialog(null);
     } catch {
       toast({ title: "Action failed", variant: "destructive" });
+    }
+  };
+
+  const handleUpdateCredentials = async () => {
+    if (!credentialsDialog) return;
+    const { request } = credentialsDialog;
+    try {
+      if (!newUsername.trim() && !newPassword.trim()) {
+        toast({
+          title: "Username or password required",
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!credentialsReason.trim()) {
+        toast({
+          title: "Reason is required",
+          variant: "destructive",
+        });
+        return;
+      }
+      await createRequestMutation.mutateAsync({
+        clientId: request.clientId,
+        reason: credentialsReason.trim(),
+        newUsername: newUsername.trim() || undefined,
+        newPassword: newPassword.trim() || undefined,
+      });
+      toast({
+        title: "Request created",
+        description: "A new PPPoE change request has been created.",
+      });
+      setCredentialsDialog(null);
+    } catch {
+      toast({ title: "Create request failed", variant: "destructive" });
     }
   };
 
@@ -696,6 +768,100 @@ export function LogsRequestsPage() {
                   <>
                     <CheckCircle2 className="h-4 w-4" />
                     Confirm
+                  </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog
+        open={!!credentialsDialog}
+        onOpenChange={() => setCredentialsDialog(null)}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="flex items-center gap-3">
+              <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-950">
+                <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
+              </div>
+              <div>
+                <DialogTitle>Create PPPoE Change Request</DialogTitle>
+                <DialogDescription>
+                  Submit a new PPPoE change request for this client.
+                </DialogDescription>
+              </div>
+            </div>
+          </DialogHeader>
+
+          {credentialsDialog?.request && (
+            <div className="rounded-lg bg-muted/50 p-4 space-y-2">
+              <div className="flex items-center gap-2 text-sm">
+                <User className="h-4 w-4 text-muted-foreground" />
+                <span className="font-medium">
+                  {credentialsDialog.request.client?.fullName ||
+                    "Unknown Client"}
+                </span>
+              </div>
+              <div className="flex items-start gap-2 text-sm">
+                <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
+                <span className="text-muted-foreground">
+                  {credentialsDialog.request.reason || "No reason provided"}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4 py-2">
+            <div className="space-y-2">
+              <Label>Reason *</Label>
+              <Textarea
+                value={credentialsReason}
+                onChange={(e) => setCredentialsReason(e.target.value)}
+                placeholder="Provide a reason for this change..."
+                className="min-h-[80px]"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>New Username</Label>
+              <Input
+                value={newUsername}
+                onChange={(e) => setNewUsername(e.target.value)}
+                placeholder="Enter PPPoE username"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>New Password</Label>
+              <Input
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder="Enter PPPoE password"
+                type="password"
+              />
+            </div>
+            <div className="flex gap-3 pt-2">
+              <Button
+                variant="outline"
+                className="flex-1"
+                onClick={() => setCredentialsDialog(null)}
+              >
+                Cancel
+              </Button>
+              <Button
+                className="flex-1 gap-2"
+                onClick={handleUpdateCredentials}
+                disabled={createRequestMutation.isPending}
+              >
+                {createRequestMutation.isPending ? (
+                  <>
+                    <RefreshCcw className="h-4 w-4 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-4 w-4" />
+                    Save
                   </>
                 )}
               </Button>

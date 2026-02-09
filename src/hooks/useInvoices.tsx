@@ -1,4 +1,11 @@
-import { getAllInvoices, getInvoiceById, createInvoice, cancelInvoice } from "@/service/invoices.service";
+import {
+  getAllInvoices,
+  getInvoiceById,
+  createInvoice,
+  cancelInvoice,
+  exportInvoicesExcel,
+  exportInvoicesPdf,
+} from "@/service/invoices.service";
 import { Invoice } from "@/types/api.types";
 import { InvoiceFilters, CreateInvoiceRequest } from "@/types/api.types";
 import {
@@ -58,5 +65,25 @@ export function useCancelInvoice(): UseMutationResult<Invoice, Error, string> {
       queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
       queryClient.invalidateQueries({ queryKey: invoiceKeys.detail(id) });
     },
+  });
+}
+
+export function useExportInvoicesExcel(): UseMutationResult<
+  Blob,
+  Error,
+  InvoiceFilters | undefined
+> {
+  return useMutation({
+    mutationFn: (filters) => exportInvoicesExcel(filters),
+  });
+}
+
+export function useExportInvoicesPdf(): UseMutationResult<
+  Blob,
+  Error,
+  InvoiceFilters | undefined
+> {
+  return useMutation({
+    mutationFn: (filters) => exportInvoicesPdf(filters),
   });
 }

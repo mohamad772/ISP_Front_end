@@ -37,6 +37,9 @@ export async function getPPPoERequestById(id: string): Promise<PPPoERequest> {
 }
 
 /**
+ * Update PPPoE request credentials
+ */
+/**
  * Approve PPPoE request
  */
 export async function approvePPPoERequest(

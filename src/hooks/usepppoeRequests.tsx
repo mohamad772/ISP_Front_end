@@ -1,6 +1,19 @@
-import { getAllPPPoERequests, getPPPoERequestById, createPPPoERequest, approvePPPoERequest, rejectPPPoERequest, completePPPoERequest } from "@/service/pppoerequests.service";
+import {
+  getAllPPPoERequests,
+  getPPPoERequestById,
+  createPPPoERequest,
+  approvePPPoERequest,
+  rejectPPPoERequest,
+  completePPPoERequest,
+} from "@/service/pppoerequests.service";
 import { PPPoERequest } from "@/types/api.types";
-import { PPPoERequestFilters, CreatePPPoERequestRequest, ApprovePPPoERequestRequest, RejectPPPoERequestRequest, CompletePPPoERequestRequest } from "@/types/api.types";
+import {
+  PPPoERequestFilters,
+  CreatePPPoERequestRequest,
+  ApprovePPPoERequestRequest,
+  RejectPPPoERequestRequest,
+  CompletePPPoERequestRequest,
+} from "@/types/api.types";
 import { UseQueryResult, useQuery, UseMutationResult, useQueryClient, useMutation } from "@tanstack/react-query";
 
 export const pppoeRequestKeys = {

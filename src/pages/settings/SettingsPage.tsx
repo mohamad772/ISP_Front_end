@@ -12,35 +12,38 @@ import { Switch } from "@/components/ui/switch";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import {
-  Settings,
-  Bell,
-  Shield,
-  Database,
-  Activity,
-  Loader2,
-} from "lucide-react";
+import { Shield, Database, Activity, Loader2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useSettings,
   useUpdateSettings,
-  useExportSystemData,
   useSystemHealth,
   useClearSystemCache,
   useActiveSessions,
 } from "@/hooks/useSettings";
+import {
+  useExportInvoicesExcel,
+  useExportInvoicesPdf,
+} from "@/hooks/useInvoices";
 import type { SystemHealth, ActiveSession } from "@/types/api.types";
 
 export function SettingsPage() {
   const { toast } = useToast();
   const { data: settings, isLoading } = useSettings();
   const updateMutation = useUpdateSettings();
-  const exportMutation = useExportSystemData();
+  const exportInvoicesExcelMutation = useExportInvoicesExcel();
+  const exportInvoicesPdfMutation = useExportInvoicesPdf();
   const healthMutation = useSystemHealth();
   const clearCacheMutation = useClearSystemCache();
   const sessionsMutation = useActiveSessions();
@@ -51,31 +54,18 @@ export function SettingsPage() {
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
 
   const [form, setForm] = useState({
-    enableMfa: false,
-    sessionTimeoutMinutes: 30,
     auditLoggingEnabled: true,
-    emailAlertsEnabled: true,
-    paymentRemindersEnabled: true,
-    bandwidthWarningsEnabled: true,
-    ipWhitelistingEnabled: false,
     passwordExpiryDays: 90,
-    systemVersion: "1.0.0",
-    lastBackupAt: null as string | null,
   });
 
   useEffect(() => {
     if (settings) {
       setForm({
-        enableMfa: settings.enableMfa ?? false,
-        sessionTimeoutMinutes: settings.sessionTimeoutMinutes ?? 30,
         auditLoggingEnabled: settings.auditLoggingEnabled ?? true,
-        emailAlertsEnabled: settings.emailAlertsEnabled ?? true,
-        paymentRemindersEnabled: settings.paymentRemindersEnabled ?? true,
-        bandwidthWarningsEnabled: settings.bandwidthWarningsEnabled ?? true,
-        ipWhitelistingEnabled: settings.ipWhitelistingEnabled ?? false,
-        passwordExpiryDays: settings.passwordExpiryDays ?? 90,
-        systemVersion: settings.systemVersion ?? "1.0.0",
-        lastBackupAt: settings.lastBackupAt ?? null,
+        passwordExpiryDays:
+          settings.passwordExpiryDays && settings.passwordExpiryDays > 0
+            ? settings.passwordExpiryDays
+            : 90,
       });
     }
   }, [settings]);
@@ -96,18 +86,33 @@ export function SettingsPage() {
     return Object.entries(healthData);
   }, [healthData]);
 
-  const handleExportData = async () => {
+  const handleExportInvoicesExcel = async () => {
     try {
-      const blob = await exportMutation.mutateAsync();
+      const blob = await exportInvoicesExcelMutation.mutateAsync(undefined);
       const url = window.URL.createObjectURL(blob);
       const link = document.createElement("a");
       link.href = url;
-      link.download = "system-export.zip";
+      link.download = `invoices-${new Date().toISOString().split("T")[0]}.xlsx`;
       link.click();
       window.URL.revokeObjectURL(url);
-      toast({ title: "Export started" });
+      toast({ title: "Invoice Excel export started" });
     } catch {
-      toast({ title: "Export failed", variant: "destructive" });
+      toast({ title: "Invoice Excel export failed", variant: "destructive" });
+    }
+  };
+
+  const handleExportInvoicesPdf = async () => {
+    try {
+      const blob = await exportInvoicesPdfMutation.mutateAsync(undefined);
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoices-${new Date().toISOString().split("T")[0]}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+      toast({ title: "Invoice PDF export started" });
+    } catch {
+      toast({ title: "Invoice PDF export failed", variant: "destructive" });
     }
   };
 
@@ -166,176 +171,6 @@ export function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2 relative z-10">
-        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-left-8 duration-1000 delay-100">
-          {/* Animated gradient background */}
-          <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-
-          {/* Floating orb */}
-          <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 -translate-y-1/2 translate-x-1/2 group-hover:scale-150" />
-
-          {/* Shimmer effect */}
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent -translate-x-full group-hover:translate-x-full transition-transform duration-2000 ease-in-out" />
-          </div>
-
-          <CardHeader className="relative z-10">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg">
-                <Settings className="w-5 h-5 text-primary" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-ping" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
-              </div>
-              <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                General
-              </span>
-            </CardTitle>
-            <CardDescription>Basic system configuration</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 relative z-10">
-            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-200">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
-              <div className="relative z-10">
-                <Label className="font-semibold">Enable MFA</Label>
-                <p className="text-sm text-muted-foreground">
-                  Require multi-factor authentication
-                </p>
-              </div>
-              <Switch
-                checked={form.enableMfa}
-                onCheckedChange={(v) => handleUpdate({ enableMfa: v })}
-                disabled={isLoading}
-                className="relative z-10"
-              />
-            </div>
-
-            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-250">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
-              <div className="relative z-10">
-                <Label className="font-semibold">Session Timeout</Label>
-                <p className="text-sm text-muted-foreground">
-                  Auto-logout after inactivity
-                </p>
-              </div>
-              <Input
-                type="number"
-                min="1"
-                className="w-24 relative z-10 transition-all duration-300 focus:ring-2 focus:ring-primary/30"
-                value={form.sessionTimeoutMinutes}
-                onChange={(e) =>
-                  setForm({
-                    ...form,
-                    sessionTimeoutMinutes: Number(e.target.value || 0),
-                  })
-                }
-                onBlur={() =>
-                  handleUpdate({
-                    sessionTimeoutMinutes: Number(
-                      form.sessionTimeoutMinutes || 0,
-                    ),
-                  })
-                }
-                disabled={isLoading}
-              />
-            </div>
-
-            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-300">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
-              <div className="relative z-10">
-                <Label className="font-semibold">Audit Logging</Label>
-                <p className="text-sm text-muted-foreground">
-                  Track all system actions
-                </p>
-              </div>
-              <Switch
-                checked={form.auditLoggingEnabled}
-                onCheckedChange={(v) =>
-                  handleUpdate({ auditLoggingEnabled: v })
-                }
-                disabled={isLoading}
-                className="relative z-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-right-8 duration-1000 delay-100">
-          <div className="absolute inset-0 bg-gradient-to-bl from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
-          <div className="absolute bottom-0 left-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 translate-y-1/2 -translate-x-1/2 group-hover:scale-150" />
-
-          <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-1000">
-            <div className="absolute inset-0 bg-gradient-to-r from-transparent via-primary/10 to-transparent translate-x-full group-hover:-translate-x-full transition-transform duration-2000 ease-in-out" />
-          </div>
-
-          <CardHeader className="relative z-10">
-            <CardTitle className="flex items-center gap-3 text-xl">
-              <div className="relative p-3 rounded-2xl bg-gradient-to-br from-primary/20 to-primary/10 group-hover:from-primary/30 group-hover:to-primary/20 transition-all duration-500 group-hover:scale-110 group-hover:rotate-6 shadow-lg">
-                <Bell className="w-5 h-5 text-primary" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full animate-ping" />
-                <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
-              </div>
-              <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                Notifications
-              </span>
-            </CardTitle>
-            <CardDescription>
-              Alert and notification preferences
-            </CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-6 relative z-10">
-            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-right duration-700 delay-200">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
-              <div className="relative z-10">
-                <Label className="font-semibold">Email Alerts</Label>
-                <p className="text-sm text-muted-foreground">
-                  Send critical alerts via email
-                </p>
-              </div>
-              <Switch
-                checked={form.emailAlertsEnabled}
-                onCheckedChange={(v) => handleUpdate({ emailAlertsEnabled: v })}
-                disabled={isLoading}
-                className="relative z-10"
-              />
-            </div>
-
-            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-right duration-700 delay-250">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
-              <div className="relative z-10">
-                <Label className="font-semibold">Payment Reminders</Label>
-                <p className="text-sm text-muted-foreground">
-                  Notify on overdue invoices
-                </p>
-              </div>
-              <Switch
-                checked={form.paymentRemindersEnabled}
-                onCheckedChange={(v) =>
-                  handleUpdate({ paymentRemindersEnabled: v })
-                }
-                disabled={isLoading}
-                className="relative z-10"
-              />
-            </div>
-
-            <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-right duration-700 delay-300">
-              <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
-              <div className="relative z-10">
-                <Label className="font-semibold">Bandwidth Warnings</Label>
-                <p className="text-sm text-muted-foreground">
-                  Alert when usage exceeds 80%
-                </p>
-              </div>
-              <Switch
-                checked={form.bandwidthWarningsEnabled}
-                onCheckedChange={(v) =>
-                  handleUpdate({ bandwidthWarningsEnabled: v })
-                }
-                disabled={isLoading}
-                className="relative z-10"
-              />
-            </div>
-          </CardContent>
-        </Card>
-
         <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-left-8 duration-1000 delay-150">
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 -translate-y-1/2 translate-x-1/2 group-hover:scale-150" />
@@ -355,21 +190,21 @@ export function SettingsPage() {
                 Security
               </span>
             </CardTitle>
-            <CardDescription>Security and access control</CardDescription>
+            <CardDescription>Audit logging and password policy</CardDescription>
           </CardHeader>
           <CardContent className="space-y-6 relative z-10">
             <div className="group/item flex items-center justify-between p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-250">
               <div className="absolute inset-0 bg-gradient-to-r from-primary/5 to-transparent opacity-0 group-hover/item:opacity-100 transition-opacity duration-500 rounded-xl" />
               <div className="relative z-10">
-                <Label className="font-semibold">IP Whitelisting</Label>
+                <Label className="font-semibold">Audit Logging</Label>
                 <p className="text-sm text-muted-foreground">
-                  Restrict admin access by IP
+                  Track all system actions
                 </p>
               </div>
               <Switch
-                checked={form.ipWhitelistingEnabled}
+                checked={form.auditLoggingEnabled}
                 onCheckedChange={(v) =>
-                  handleUpdate({ ipWhitelistingEnabled: v })
+                  handleUpdate({ auditLoggingEnabled: v })
                 }
                 disabled={isLoading}
                 className="relative z-10"
@@ -386,7 +221,7 @@ export function SettingsPage() {
               </div>
               <Input
                 type="number"
-                min="1"
+                min="90"
                 className="w-24 relative z-10 transition-all duration-300 focus:ring-2 focus:ring-primary/30"
                 value={form.passwordExpiryDays}
                 onChange={(e) =>
@@ -397,35 +232,14 @@ export function SettingsPage() {
                 }
                 onBlur={() =>
                   handleUpdate({
-                    passwordExpiryDays: Number(form.passwordExpiryDays || 0),
+                    passwordExpiryDays: Math.max(
+                      90,
+                      Number(form.passwordExpiryDays || 0),
+                    ),
                   })
                 }
                 disabled={isLoading}
               />
-            </div>
-
-            <div className="animate-in slide-in-from-bottom duration-700 delay-350">
-              <Button
-                variant="outline"
-                className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
-                onClick={handleViewSessions}
-                disabled={sessionsMutation.isPending}
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
-                <span className="relative z-10 flex items-center justify-center gap-2">
-                  {sessionsMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 animate-spin" />
-                      Loading...
-                    </>
-                  ) : (
-                    <>
-                      <Activity className="w-4 h-4" />
-                      View Active Sessions
-                    </>
-                  )}
-                </span>
-              </Button>
             </div>
           </CardContent>
         </Card>
@@ -453,24 +267,39 @@ export function SettingsPage() {
           </CardHeader>
           <CardContent className="space-y-4 relative z-10">
             <div className="animate-in slide-in-from-right duration-700 delay-250">
-              <Button
-                variant="outline"
-                className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
-                onClick={handleExportData}
-                disabled={exportMutation.isPending}
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
-                <span className="relative z-10">
-                  {exportMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
-                      Exporting...
-                    </>
-                  ) : (
-                    "Export Data"
-                  )}
-                </span>
-              </Button>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
+                    disabled={
+                      exportInvoicesExcelMutation.isPending ||
+                      exportInvoicesPdfMutation.isPending
+                    }
+                  >
+                    <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
+                    <span className="relative z-10">
+                      {exportInvoicesExcelMutation.isPending ||
+                      exportInvoicesPdfMutation.isPending ? (
+                        <>
+                          <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
+                          Exporting...
+                        </>
+                      ) : (
+                        "Export Data"
+                      )}
+                    </span>
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="w-56">
+                  <DropdownMenuItem onClick={handleExportInvoicesExcel}>
+                    Invoices Export (Excel)
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleExportInvoicesPdf}>
+                    Invoices Export (PDF)
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </div>
 
             <div className="animate-in slide-in-from-right duration-700 delay-300">
@@ -513,27 +342,6 @@ export function SettingsPage() {
                   )}
                 </span>
               </Button>
-            </div>
-
-            <div className="pt-4 border-t animate-in fade-in duration-700 delay-400">
-              <div className="space-y-2 p-4 rounded-xl bg-muted/30">
-                <p className="text-xs text-muted-foreground flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  System Version:{" "}
-                  <span className="font-semibold text-foreground">
-                    {form.systemVersion || "1.0.0"}
-                  </span>
-                </p>
-                <p className="text-xs text-muted-foreground flex items-center gap-2">
-                  <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
-                  Last Backup:{" "}
-                  <span className="font-semibold text-foreground">
-                    {form.lastBackupAt
-                      ? new Date(form.lastBackupAt).toLocaleString()
-                      : "Never"}
-                  </span>
-                </p>
-              </div>
             </div>
           </CardContent>
         </Card>

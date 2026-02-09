@@ -40,3 +40,29 @@ export async function cancelInvoice(id: string): Promise<Invoice> {
   const response = await apiClient.patch(`/invoices/${id}/cancel`);
   return response.data;
 }
+
+/**
+ * Export invoices to Excel
+ */
+export async function exportInvoicesExcel(
+  filters?: InvoiceFilters,
+): Promise<Blob> {
+  const response = await apiClient.get("/invoices/export/excel", {
+    params: filters,
+    responseType: "blob",
+  });
+  return response.data;
+}
+
+/**
+ * Export invoices to PDF
+ */
+export async function exportInvoicesPdf(
+  filters?: InvoiceFilters,
+): Promise<Blob> {
+  const response = await apiClient.get("/invoices/export/pdf", {
+    params: filters,
+    responseType: "blob",
+  });
+  return response.data;
+}
