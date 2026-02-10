@@ -1,5 +1,6 @@
 import { getAllPayments, getPaymentById, createPayment } from "@/service/Payments.service";
-import { Payment } from "@/types/api.types";
+import { InvoiceStatus, Payment } from "@/types/api.types";
+import type { Invoice } from "@/types/api.types";
 import { PaymentFilters, CreatePaymentRequest } from "@/types/api.types";
 import {
   useQuery,
@@ -46,12 +47,65 @@ export function useCreatePayment(): UseMutationResult<
     mutationFn: createPayment,
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: paymentKeys.lists() });
-      // Also invalidate invoice queries since payment affects invoice status
-      queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
       if (data.invoiceId) {
-        queryClient.invalidateQueries({
-          queryKey: invoiceKeys.detail(data.invoiceId),
-        });
+        const rawPaid =
+          Number(data.amountPaid ?? 0) + Number(data.extraAmount ?? 0);
+        const paidAmount = Number.isFinite(rawPaid) ? rawPaid : 0;
+
+        // Optimistically update cached invoices so status flips to PAID immediately
+        queryClient.setQueriesData<Invoice[]>(
+          {
+            predicate: (query) =>
+              Array.isArray(query.queryKey) &&
+              query.queryKey[0] === invoiceKeys.all[0],
+          },
+          (old) =>
+            old?.map((inv) => {
+              if (inv.id !== data.invoiceId) return inv;
+              const currentPaid = Number(inv.totalPaid || 0);
+              const amount = Number(inv.amount || 0);
+              const updatedPaid = currentPaid + paidAmount;
+              const updatedStatus =
+                updatedPaid >= amount ? InvoiceStatus.PAID : inv.calculatedStatus;
+              return {
+                ...inv,
+                totalPaid: updatedPaid,
+                calculatedStatus: updatedStatus,
+              };
+            }),
+        );
+
+        queryClient.setQueryData<Invoice>(
+          invoiceKeys.detail(data.invoiceId),
+          (inv) => {
+            if (!inv) return inv;
+            const currentPaid = Number(inv.totalPaid || 0);
+            const amount = Number(inv.amount || 0);
+            const updatedPaid = currentPaid + paidAmount;
+            const updatedStatus =
+              updatedPaid >= amount ? InvoiceStatus.PAID : inv.calculatedStatus;
+            return {
+              ...inv,
+              totalPaid: updatedPaid,
+              calculatedStatus: updatedStatus,
+            };
+          },
+        );
+      }
+
+      // Revalidate from server only when it can provide updated invoice totals
+      const serverInvoice: Partial<Invoice> | undefined =
+        (data as unknown as { invoice?: Partial<Invoice> }).invoice;
+      const hasServerTotals =
+        serverInvoice?.totalPaid !== undefined ||
+        serverInvoice?.calculatedStatus !== undefined;
+      if (hasServerTotals) {
+        queryClient.invalidateQueries({ queryKey: invoiceKeys.lists() });
+        if (data.invoiceId) {
+          queryClient.invalidateQueries({
+            queryKey: invoiceKeys.detail(data.invoiceId),
+          });
+        }
       }
     },
   });

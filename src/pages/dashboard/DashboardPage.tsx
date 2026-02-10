@@ -110,20 +110,44 @@
       return Math.round((used / total) * 100);
     };
 
-    const bandwidthUsage = bandwidthData
-      ? safePercent(
-          bandwidthData.allocatedBandwidthMbps,
-          bandwidthData.totalBandwidthMbps,
-        )
-      : stats
-        ? safePercent(stats.usedBandwidth, stats.totalBandwidth)
+    const posAllocatedTotal =
+      isPosSuccess && posData
+        ? posData.reduce(
+            (sum, pos) => sum + Number(pos.allocatedBandwidthMbps || 0),
+            0,
+          )
+        : 0;
+    const posUsedTotal =
+      isPosSuccess && posData
+        ? posData.reduce(
+            (sum, pos) => sum + Number(pos.usedBandwidthMbps || 0),
+            0,
+          )
         : 0;
 
-    // Get bandwidth values from either source
+    const bandwidthUsage =
+      posAllocatedTotal > 0
+        ? safePercent(posUsedTotal, posAllocatedTotal)
+        : bandwidthData
+          ? safePercent(
+              bandwidthData.allocatedBandwidthMbps,
+              bandwidthData.totalBandwidthMbps,
+            )
+          : stats
+            ? safePercent(stats.usedBandwidth, stats.totalBandwidth)
+            : 0;
+
+    // Get bandwidth values from POS allocations when available
     const totalBandwidth =
-      bandwidthData?.totalBandwidthMbps || stats?.totalBandwidth || 0;
+      posAllocatedTotal ||
+      bandwidthData?.totalBandwidthMbps ||
+      stats?.totalBandwidth ||
+      0;
     const allocatedBandwidth =
-      bandwidthData?.allocatedBandwidthMbps || stats?.usedBandwidth || 0;
+      posUsedTotal ||
+      bandwidthData?.allocatedBandwidthMbps ||
+      stats?.usedBandwidth ||
+      0;
 
     // Calculate total payments
     const totalPayments = useMemo(() => {
@@ -522,7 +546,7 @@
           <StatCard
             title="Total Bandwidth"
             value={`${totalBandwidth.toLocaleString()} Mbps`}
-            subtitle={`${bandwidthUsage}% utilized (${allocatedBandwidth.toLocaleString()} Mbps allocated)`}
+            subtitle={`${bandwidthUsage}% utilized (${allocatedBandwidth.toLocaleString()} Mbps used)`}
             icon={Wifi}
             variant="accent"
           />

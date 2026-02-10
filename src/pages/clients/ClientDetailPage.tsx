@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { getInvoiceStatus, isInvoicePaid } from "@/utils/invoiceStatus";
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -220,7 +221,21 @@ export function ClientDetailPage() {
       key: "status",
       header: "Status",
       render: (i: Invoice) => (
-        <StatusBadge status={(i.calculatedStatus || "UNPAID").toLowerCase()} />
+        <StatusBadge status={getInvoiceStatus(i).toLowerCase()} />
+      ),
+    },
+    {
+      key: "actions",
+      header: "Actions",
+      render: (i: Invoice) => (
+        <Button
+          size="sm"
+          variant="outline"
+          disabled={isInvoicePaid(i) || isCreatingPayment}
+          onClick={() => handleQuickPay(i)}
+        >
+          Pay
+        </Button>
       ),
     },
   ];
@@ -347,7 +362,7 @@ export function ClientDetailPage() {
 
   const openPayment = () => {
     const unpaidInvoices = invoices.filter(
-      (inv) => (inv.calculatedStatus || "UNPAID") !== "PAID",
+      (inv) => !isInvoicePaid(inv),
     );
     const firstInvoice = unpaidInvoices[0];
     setPaymentForm({
@@ -426,6 +441,36 @@ export function ClientDetailPage() {
       });
       toast({ title: "Payment recorded" });
       setIsPaymentOpen(false);
+    } catch {
+      toast({ title: "Failed to record payment", variant: "destructive" });
+    } finally {
+      setIsCreatingPayment(false);
+    }
+  };
+
+  const getRemainingAmount = (invoice: Invoice) => {
+    const amount = Number(invoice.amount || 0);
+    const paid = Number(invoice.totalPaid || 0);
+    return Math.max(0, amount - paid);
+  };
+
+  const handleQuickPay = async (invoice: Invoice) => {
+    if (isCreatingPayment) return;
+    const remaining = getRemainingAmount(invoice);
+    if (remaining <= 0) {
+      toast({ title: "Invoice is already paid" });
+      return;
+    }
+    try {
+      setIsCreatingPayment(true);
+      await createPaymentMutation.mutateAsync({
+        invoiceId: invoice.id,
+        amountPaid: remaining,
+        paymentMethod: PaymentMethod.CASH,
+        paymentReference: "quick_pay",
+        notes: "Quick pay from invoice list",
+      });
+      toast({ title: "Payment recorded" });
     } catch {
       toast({ title: "Failed to record payment", variant: "destructive" });
     } finally {
@@ -963,7 +1008,7 @@ export function ClientDetailPage() {
                         </SelectTrigger>
                         <SelectContent>
                           {invoices.filter(
-                            (inv) => (inv.calculatedStatus || "UNPAID") !== "PAID",
+                            (inv) => !isInvoicePaid(inv),
                           ).length === 0 && (
                             <SelectItem value="none" disabled>
                               No invoices available
@@ -972,7 +1017,7 @@ export function ClientDetailPage() {
                           {invoices
                             .filter(
                               (inv) =>
-                                (inv.calculatedStatus || "UNPAID") !== "PAID",
+                                !isInvoicePaid(inv),
                             )
                             .map((inv) => (
                             <SelectItem key={inv.id} value={inv.id}>

@@ -2,6 +2,7 @@ import { PageHeader } from "@/components/common/PageHeader";
 import { StatCard } from "@/components/common/StatCard";
 import { DataTable } from "@/components/common/DataTable";
 import { StatusBadge } from "@/components/common/StatusBadge";
+import { getInvoiceStatus, isInvoicePaid } from "@/utils/invoiceStatus";
 import {
   Card,
   CardContent,
@@ -119,7 +120,7 @@ export function BillingPage() {
     0,
   );
   const unpaidAmount = invoices
-    .filter((i) => i.calculatedStatus !== "PAID")
+    .filter((i) => !isInvoicePaid(i))
     .reduce((sum, i) => sum + Number(i.amount || 0), 0);
 
   const invoiceColumns = [
@@ -144,7 +145,7 @@ export function BillingPage() {
       key: "status",
       header: "Status",
       render: (i: Invoice) => (
-        <StatusBadge status={(i.calculatedStatus || "UNPAID").toLowerCase()} />
+        <StatusBadge status={getInvoiceStatus(i).toLowerCase()} />
       ),
     },
   ];
@@ -190,9 +191,7 @@ export function BillingPage() {
   };
 
   const openPayment = () => {
-    const unpaid = invoices.filter(
-      (i) => (i.calculatedStatus || "UNPAID") !== "PAID",
-    );
+    const unpaid = invoices.filter((i) => !isInvoicePaid(i));
     const first = unpaid[0];
     setPaymentForm({
       invoiceId: first ? first.id : "none",
@@ -525,7 +524,7 @@ export function BillingPage() {
                       <SelectContent>
                         {invoices
                           .filter(
-                            (i) => (i.calculatedStatus || "UNPAID") !== "PAID",
+      (i) => !isInvoicePaid(i),
                           )
                           .map((inv) => (
                             <SelectItem key={inv.id} value={inv.id}>

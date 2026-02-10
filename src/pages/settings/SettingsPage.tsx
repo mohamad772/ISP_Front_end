@@ -16,6 +16,8 @@ import {
   DropdownMenuContent,
   DropdownMenuItem,
   DropdownMenuTrigger,
+  DropdownMenuSeparator,
+  DropdownMenuLabel,
 } from "@/components/ui/dropdown-menu";
 import {
   Dialog,
@@ -23,7 +25,14 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { Shield, Database, Activity, Loader2 } from "lucide-react";
+import {
+  Shield,
+  Database,
+  Activity,
+  Loader2,
+  FileText,
+  Palette,
+} from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import {
   useSettings,
@@ -35,12 +44,15 @@ import {
 import {
   useExportInvoicesExcel,
   useExportInvoicesPdf,
+  useInvoices,
 } from "@/hooks/useInvoices";
 import type { SystemHealth, ActiveSession } from "@/types/api.types";
+import { exportInvoicesAdvanced } from "@/utils/advancedPdfExport";
 
 export function SettingsPage() {
   const { toast } = useToast();
   const { data: settings, isLoading } = useSettings();
+  const { data: invoicesData } = useInvoices();
   const updateMutation = useUpdateSettings();
   const exportInvoicesExcelMutation = useExportInvoicesExcel();
   const exportInvoicesPdfMutation = useExportInvoicesPdf();
@@ -52,6 +64,7 @@ export function SettingsPage() {
   const [sessionsDialogOpen, setSessionsDialogOpen] = useState(false);
   const [healthData, setHealthData] = useState<SystemHealth | null>(null);
   const [activeSessions, setActiveSessions] = useState<ActiveSession[]>([]);
+  const [isExportingAdvanced, setIsExportingAdvanced] = useState(false);
 
   const [form, setForm] = useState({
     auditLoggingEnabled: true,
@@ -95,7 +108,7 @@ export function SettingsPage() {
       link.download = `invoices-${new Date().toISOString().split("T")[0]}.xlsx`;
       link.click();
       window.URL.revokeObjectURL(url);
-      toast({ title: "Invoice Excel export started" });
+      toast({ title: "Invoice Excel export completed successfully" });
     } catch {
       toast({ title: "Invoice Excel export failed", variant: "destructive" });
     }
@@ -110,9 +123,56 @@ export function SettingsPage() {
       link.download = `invoices-${new Date().toISOString().split("T")[0]}.pdf`;
       link.click();
       window.URL.revokeObjectURL(url);
-      toast({ title: "Invoice PDF export started" });
+      toast({ title: "Invoice PDF export completed successfully" });
     } catch {
       toast({ title: "Invoice PDF export failed", variant: "destructive" });
+    }
+  };
+
+  const handleExportAdvancedPdf = async (
+    colorScheme: "blue" | "green" | "purple" | "corporate",
+  ) => {
+    if (!invoicesData || invoicesData.length === 0) {
+      toast({ title: "No invoices to export", variant: "destructive" });
+      return;
+    }
+
+    setIsExportingAdvanced(true);
+    try {
+      const blob = await exportInvoicesAdvanced(invoicesData, {
+        includeCharts: true,
+        includeSummary: true,
+        includeAnalytics: true,
+        colorScheme,
+        companyInfo: {
+          name: "ISP",
+          address: "Aleppo,syria",
+          phone: "+963911111111",
+          email: "contact@ISP.com",
+          website: "www.ISP.com",
+        },
+      });
+
+      const url = window.URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = `invoices-advanced-${colorScheme}-${new Date().toISOString().split("T")[0]}.pdf`;
+      link.click();
+      window.URL.revokeObjectURL(url);
+
+      toast({
+        title: "Advanced PDF export completed",
+        description: `Generated with ${colorScheme} theme`,
+      });
+    } catch (error) {
+      console.error("Advanced PDF export error:", error);
+      toast({
+        title: "Advanced PDF export failed",
+        variant: "destructive",
+        description: "Please check console for details",
+      });
+    } finally {
+      setIsExportingAdvanced(false);
     }
   };
 
@@ -274,29 +334,81 @@ export function SettingsPage() {
                     className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
                     disabled={
                       exportInvoicesExcelMutation.isPending ||
-                      exportInvoicesPdfMutation.isPending
+                      exportInvoicesPdfMutation.isPending ||
+                      isExportingAdvanced
                     }
                   >
                     <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
-                    <span className="relative z-10">
+                    <span className="relative z-10 flex items-center justify-center">
                       {exportInvoicesExcelMutation.isPending ||
-                      exportInvoicesPdfMutation.isPending ? (
+                      exportInvoicesPdfMutation.isPending ||
+                      isExportingAdvanced ? (
                         <>
-                          <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
+                          <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                           Exporting...
                         </>
                       ) : (
-                        "Export Data"
+                        <>
+                          <FileText className="w-4 h-4 mr-2" />
+                          Export Data
+                        </>
                       )}
                     </span>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="end" className="w-56">
+                <DropdownMenuContent align="end" className="w-64">
+                  <DropdownMenuLabel className="flex items-center gap-2">
+                    <FileText className="w-4 h-4" />
+                    Standard Exports
+                  </DropdownMenuLabel>
                   <DropdownMenuItem onClick={handleExportInvoicesExcel}>
-                    Invoices Export (Excel)
+                    <span className="flex items-center gap-2">
+                      📊 Invoices Export (Excel)
+                    </span>
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={handleExportInvoicesPdf}>
-                    Invoices Export (PDF)
+                    <span className="flex items-center gap-2">
+                      📄 Invoices Export (Basic PDF)
+                    </span>
+                  </DropdownMenuItem>
+
+                  <DropdownMenuSeparator />
+
+                  <DropdownMenuLabel className="flex items-center gap-2">
+                    <Palette className="w-4 h-4" />
+                    Advanced PDF Exports
+                  </DropdownMenuLabel>
+                  <DropdownMenuItem
+                    onClick={() => handleExportAdvancedPdf("blue")}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-blue-500" />
+                      Blue Theme (Professional)
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleExportAdvancedPdf("green")}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-green-500" />
+                      Green Theme (Fresh)
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleExportAdvancedPdf("purple")}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-purple-500" />
+                      Purple Theme (Creative)
+                    </span>
+                  </DropdownMenuItem>
+                  <DropdownMenuItem
+                    onClick={() => handleExportAdvancedPdf("corporate")}
+                  >
+                    <span className="flex items-center gap-2">
+                      <span className="w-3 h-3 rounded-full bg-gray-700" />
+                      Corporate Theme (Classic)
+                    </span>
                   </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
