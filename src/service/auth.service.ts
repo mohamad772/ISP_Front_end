@@ -9,6 +9,7 @@ type RawLoginResponse = {
   userData?: User;
   userInfo?: User;
   profile?: User;
+  permissions?: string[];
   data?: unknown;
   result?: unknown;
   payload?: unknown;
@@ -19,11 +20,28 @@ type JwtPayload = {
   sub?: string;
   userId?: string;
   username?: string;
-  role?: User["role"];
+  role?: User["role"] | string;
   capabilities?: string[];
   posId?: string | null;
   email?: string;
 };
+
+function normalizeRole(role: unknown): UserRole | undefined {
+  if (typeof role !== "string") return undefined;
+  if (Object.values(UserRole).includes(role as UserRole)) {
+    return role as UserRole;
+  }
+
+  const normalized = role.trim().toUpperCase();
+  const legacyMap: Record<string, UserRole> = {
+    ADMIN: UserRole.WSP_ADMIN,
+    WSP_ADMIN: UserRole.WSP_ADMIN,
+    SUB_ADMIN: UserRole.SUB_ADMIN,
+    POS_MANAGER: UserRole.POS_MANAGER,
+    CLIENT: UserRole.CLIENT,
+  };
+  return legacyMap[normalized];
+}
 
 function extractToken(candidate: RawLoginResponse | undefined): string | undefined {
   if (!candidate) return undefined;
@@ -57,12 +75,13 @@ function buildUserFromToken(token: string): User | null {
   const username = payload.username ?? "user";
   const id = payload.sub ?? payload.userId ?? "unknown";
   const now = new Date().toISOString();
+  const role = normalizeRole(payload.role) ?? UserRole.WSP_ADMIN;
 
   return {
     id,
     username,
     email: payload.email ?? `${username}@local`,
-    role: payload.role ?? UserRole.WSP_ADMIN,
+    role,
     isActive: true,
     createdAt: now,
     updatedAt: now,
@@ -96,8 +115,38 @@ function normalizeLoginResponse(raw: RawLoginResponse): LoginResponse {
     user = buildUserFromToken(access_token) ?? undefined;
   }
 
+  if (user) {
+    const permissions =
+      (user as unknown as { permissions?: string[] })?.permissions ??
+      (raw as unknown as { permissions?: string[] })?.permissions ??
+      (raw?.data as { permissions?: string[] } | undefined)?.permissions;
+    if ((!user.capabilities || user.capabilities.length === 0) && permissions) {
+      user = { ...user, capabilities: permissions };
+    }
+    const role = normalizeRole(user.role);
+    if (!role && access_token) {
+      const tokenUser = buildUserFromToken(access_token);
+      if (tokenUser) {
+        user = { ...tokenUser, ...user };
+      }
+    } else if (role) {
+      user = { ...user, role };
+    }
+  }
+
   if (!access_token || !user) {
     throw new Error("Login response missing user or access token");
+  }
+  if (!user.role) {
+    throw new Error("Login response missing user role");
+  }
+  const allowedRoles: UserRole[] = [
+    UserRole.WSP_ADMIN,
+    UserRole.SUB_ADMIN,
+    UserRole.POS_MANAGER,
+  ];
+  if (!allowedRoles.includes(user.role)) {  
+    throw new Error("Role is not allowed to sign in");
   }
 
   return { access_token, user };

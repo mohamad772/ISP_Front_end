@@ -1,6 +1,24 @@
+import { useState } from "react";
 import { PageHeader } from "@/components/common/PageHeader";
 import { DataTable } from "@/components/common/DataTable";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import {
   Wifi,
   Globe,
@@ -10,14 +28,129 @@ import {
   Zap,
 } from "lucide-react";
 import { StatCard } from "@/components/common/StatCard";
+import { useToast } from "@/hooks/use-toast";
+import { usePOSList } from "@/hooks/usePos";
+import { useCreateStaticIP } from "@/hooks/useStaticIp";
 import { useStaticIPPools } from "@/hooks/useStaticIPPools";
-import type { StaticIPPool } from "@/types/api.types";
+import type { CreateStaticIPRequest, StaticIPPool } from "@/types/api.types";
 
 export function NetworkPage() {
+  const { toast } = useToast();
   const { data: ipPoolsByPOS = [], isLoading: poolsLoading } =
     useStaticIPPools();
+  const { data: posList = [] } = usePOSList();
+  const createStaticIPMutation = useCreateStaticIP();
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+  const [newStaticIP, setNewStaticIP] = useState<CreateStaticIPRequest>({
+    posId: "",
+    subnetMask: "",
+    gateway: "",
+    dnsPrimary: "",
+    dnsSecondary: "",
+  });
+  const [ipRange, setIpRange] = useState({
+    start: "",
+    end: "",
+  });
 
   const isLoading = poolsLoading;
+
+  const parseIPv4 = (value: string) => {
+    const parts = value.trim().split(".");
+    if (parts.length !== 4) return null;
+    const nums = parts.map((part) => Number(part));
+    if (nums.some((num) => !Number.isInteger(num) || num < 0 || num > 255)) {
+      return null;
+    }
+    return nums;
+  };
+
+  const handleCreateStaticIP = async () => {
+    if (isCreating) return;
+    if (
+      !newStaticIP.posId ||
+      !ipRange.start.trim() ||
+      !ipRange.end.trim() ||
+      !newStaticIP.subnetMask.trim() ||
+      !newStaticIP.gateway.trim()
+    ) {
+      toast({
+        title: "POS, IP range, subnet mask, and gateway are required",
+        variant: "destructive",
+      });
+      return;
+    }
+    const startParts = parseIPv4(ipRange.start);
+    const endParts = parseIPv4(ipRange.end);
+    if (!startParts || !endParts) {
+      toast({
+        title: "Enter valid IPv4 addresses",
+        variant: "destructive",
+      });
+      return;
+    }
+    const samePrefix =
+      startParts[0] === endParts[0] &&
+      startParts[1] === endParts[1] &&
+      startParts[2] === endParts[2];
+    if (!samePrefix) {
+      toast({
+        title: "Start and end IP must be in the same /24 range",
+        variant: "destructive",
+      });
+      return;
+    }
+    if (endParts[3] < startParts[3]) {
+      toast({
+        title: "End IP must be greater than or equal to start IP",
+        variant: "destructive",
+      });
+      return;
+    }
+    const count = endParts[3] - startParts[3] + 1;
+    if (count > 512) {
+      toast({
+        title: "IP range is too large (max 512)",
+        variant: "destructive",
+      });
+      return;
+    }
+    try {
+      setIsCreating(true);
+      for (let last = startParts[3]; last <= endParts[3]; last += 1) {
+        const ipAddress = `${startParts[0]}.${startParts[1]}.${startParts[2]}.${last}`;
+        await createStaticIPMutation.mutateAsync({
+          posId: newStaticIP.posId,
+          ipAddress,
+          subnetMask: newStaticIP.subnetMask.trim(),
+          gateway: newStaticIP.gateway.trim(),
+          dnsPrimary: newStaticIP.dnsPrimary?.trim() || undefined,
+          dnsSecondary: newStaticIP.dnsSecondary?.trim() || undefined,
+        });
+      }
+      toast({ title: `Created ${count} static IPs` });
+      setIsCreateOpen(false);
+      setNewStaticIP({
+        posId: "",
+        subnetMask: "",
+        gateway: "",
+        dnsPrimary: "",
+        dnsSecondary: "",
+      });
+      setIpRange({ start: "", end: "" });
+    } catch (error) {
+      const rawMessage =
+        (error as { response?: { data?: { message?: string | string[] } } })
+          ?.response?.data?.message;
+      const message = Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : rawMessage || "Failed to create static IP";
+      toast({ title: message, variant: "destructive" });
+    } finally {
+      setIsCreating(false);
+    }
+  };
 
   const totals = ipPoolsByPOS.reduce(
     (acc, pool) => {
@@ -148,6 +281,128 @@ export function NetworkPage() {
       <PageHeader
         title="Network Resources"
         description="Manage bandwidth pool and static IP allocations"
+        actions={
+          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+            <DialogTrigger asChild>
+              <Button>Add Static IP</Button>
+            </DialogTrigger>
+            <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
+              <DialogHeader>
+                <DialogTitle>Add Static IP</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-4 py-2">
+                <div className="space-y-2">
+                  <Label>POS</Label>
+                  <Select
+                    value={newStaticIP.posId}
+                    onValueChange={(value) =>
+                      setNewStaticIP({ ...newStaticIP, posId: value })
+                    }
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select POS" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {posList.length === 0 && (
+                        <SelectItem value="none" disabled>
+                          No POS available
+                        </SelectItem>
+                      )}
+                      {posList.map((pos) => (
+                        <SelectItem key={pos.id} value={pos.id}>
+                          {pos.name}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Start IP</Label>
+                    <Input
+                      value={ipRange.start}
+                      onChange={(e) =>
+                        setIpRange({ ...ipRange, start: e.target.value })
+                      }
+                      placeholder="e.g. 180.150.1.2"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>End IP</Label>
+                    <Input
+                      value={ipRange.end}
+                      onChange={(e) =>
+                        setIpRange({ ...ipRange, end: e.target.value })
+                      }
+                      placeholder="e.g. 180.150.1.100"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label>Subnet Mask</Label>
+                  <Input
+                    value={newStaticIP.subnetMask}
+                    onChange={(e) =>
+                      setNewStaticIP({
+                        ...newStaticIP,
+                        subnetMask: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 255.255.255.0"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Gateway</Label>
+                  <Input
+                    value={newStaticIP.gateway}
+                    onChange={(e) =>
+                      setNewStaticIP({
+                        ...newStaticIP,
+                        gateway: e.target.value,
+                      })
+                    }
+                    placeholder="e.g. 192.168.1.1"
+                  />
+                </div>
+                <div className="grid gap-4 sm:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label>Primary DNS (optional)</Label>
+                    <Input
+                      value={newStaticIP.dnsPrimary || ""}
+                      onChange={(e) =>
+                        setNewStaticIP({
+                          ...newStaticIP,
+                          dnsPrimary: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. 8.8.8.8"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label>Secondary DNS (optional)</Label>
+                    <Input
+                      value={newStaticIP.dnsSecondary || ""}
+                      onChange={(e) =>
+                        setNewStaticIP({
+                          ...newStaticIP,
+                          dnsSecondary: e.target.value,
+                        })
+                      }
+                      placeholder="e.g. 8.8.4.4"
+                    />
+                  </div>
+                </div>
+                <Button
+                  className="w-full"
+                  onClick={handleCreateStaticIP}
+                  disabled={isCreating}
+                >
+                  {isCreating ? "Creating..." : "Create Static IP"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+        }
       />
 
       {/* Stats Grid */}

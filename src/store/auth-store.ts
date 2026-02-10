@@ -51,7 +51,8 @@ export const useStore = create<AuthState>()(
         const user = get().user;
         if (!user) return false;
         if (user.role === "WSP_ADMIN") return true;
-        return user.role.includes(permission);
+        if (!user.capabilities) return false;
+        return user.capabilities.includes(permission);
       },
 
       hasRole: (roles) => {
