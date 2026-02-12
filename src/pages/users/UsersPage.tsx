@@ -24,10 +24,12 @@ import { useTranslation } from "react-i18next";
 import {
   useUsers,
   useCreateUser,
+  useUpdateUser,
   useDeactivateUser,
   useActivateUser,
 } from "@/hooks/useUsers";
 import { usePOSList } from "@/hooks/usePos";
+import { useStore } from "@/store/auth-store";
 import { UserRole } from "@/types/api.types";
 import type { User } from "@/types/api.types";
 import {
@@ -158,6 +160,7 @@ const SuccessAnimation = ({ show }: { show: boolean }) => {
 export function UsersPage() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const currentUser = useStore((state) => state.user);
 
   const [search, setSearch] = useState("");
   const [roleFilter, setRoleFilter] = useState<UserRole | undefined>(undefined);
@@ -166,6 +169,7 @@ export function UsersPage() {
   const [showSuccess, setShowSuccess] = useState(false);
   const [isDetailsOpen, setIsDetailsOpen] = useState(false);
   const [selectedUser, setSelectedUser] = useState<User | null>(null);
+  const [capabilitiesToAdd, setCapabilitiesToAdd] = useState<string[]>([]);
   const [formStep, setFormStep] = useState(0);
   const [capabilitySearch, setCapabilitySearch] = useState("");
   const [selectAll, setSelectAll] = useState(false);
@@ -185,6 +189,7 @@ export function UsersPage() {
   });
   const { data: posList = [] } = usePOSList();
   const createUserMutation = useCreateUser();
+  const updateUserMutation = useUpdateUser();
   const deactivateUserMutation = useDeactivateUser();
   const activateUserMutation = useActivateUser();
   const posNameById = new Map(posList.map((pos) => [pos.id, pos.name]));
@@ -352,6 +357,7 @@ export function UsersPage() {
 
   const openUserDetails = (user: User) => {
     setSelectedUser(user);
+    setCapabilitiesToAdd([]);
     setIsDetailsOpen(true);
   };
 
@@ -391,6 +397,89 @@ export function UsersPage() {
         : rawMessage || t("Failed to activate user");
       toast({ title: message, variant: "destructive" });
     }
+  };
+
+  const handleRemoveCapability = async (capability: string) => {
+    if (!selectedUser || selectedUser.role !== UserRole.SUB_ADMIN) {
+      return;
+    }
+
+    const currentCapabilities = selectedUser.capabilities || [];
+    if (currentCapabilities.length <= 1) {
+      toast({
+        title: t("Sub Admin must have at least one capability"),
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const updatedCapabilities = currentCapabilities.filter(
+      (cap) => cap !== capability,
+    );
+
+    try {
+      await updateUserMutation.mutateAsync({
+        id: selectedUser.id,
+        data: { capabilities: updatedCapabilities },
+      });
+      setSelectedUser({
+        ...selectedUser,
+        capabilities: updatedCapabilities,
+      });
+      toast({ title: t("Permission removed successfully") });
+    } catch (error) {
+      const rawMessage = (
+        error as { response?: { data?: { message?: string | string[] } } }
+      )?.response?.data?.message;
+      const message = Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : rawMessage || t("Failed to update user permissions");
+      toast({ title: message, variant: "destructive" });
+    }
+  };
+
+  const handleAddCapability = async () => {
+    if (
+      !selectedUser ||
+      selectedUser.role !== UserRole.SUB_ADMIN ||
+      capabilitiesToAdd.length === 0
+    ) {
+      return;
+    }
+
+    const currentCapabilities = selectedUser.capabilities || [];
+    const updatedCapabilities = [
+      ...new Set([...currentCapabilities, ...capabilitiesToAdd]),
+    ];
+
+    try {
+      await updateUserMutation.mutateAsync({
+        id: selectedUser.id,
+        data: { capabilities: updatedCapabilities },
+      });
+      setSelectedUser({
+        ...selectedUser,
+        capabilities: updatedCapabilities,
+      });
+      setCapabilitiesToAdd([]);
+      toast({ title: t("Permission added successfully") });
+    } catch (error) {
+      const rawMessage = (
+        error as { response?: { data?: { message?: string | string[] } } }
+      )?.response?.data?.message;
+      const message = Array.isArray(rawMessage)
+        ? rawMessage.join(", ")
+        : rawMessage || t("Failed to update user permissions");
+      toast({ title: message, variant: "destructive" });
+    }
+  };
+
+  const toggleCapabilityToAdd = (capability: string) => {
+    setCapabilitiesToAdd((prev) =>
+      prev.includes(capability)
+        ? prev.filter((cap) => cap !== capability)
+        : [...prev, capability],
+    );
   };
 
   // Updated Columns Configuration with Fixed Widths
@@ -1487,25 +1576,99 @@ export function UsersPage() {
                           )}
                       </div>
                     </div>
-                    {selectedUser.capabilities &&
-                    selectedUser.capabilities.length > 0 ? (
-                      <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
-                        {selectedUser.capabilities.map((cap, index) => (
-                          <span
-                            key={cap}
-                            className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-medium border border-purple-500/30 animate-slide-in-right"
-                            style={{ animationDelay: `${index * 30}ms` }}
-                          >
-                            <Sparkles className="w-3 h-3" />
-                            {cap}
-                          </span>
-                        ))}
-                      </div>
-                    ) : (
-                      <p className="text-sm text-muted-foreground">
-                        {t("No capabilities assigned")}
-                      </p>
-                    )}
+                    <div className="space-y-3">
+                      {currentUser?.role === UserRole.WSP_ADMIN && (
+                        <div className="space-y-2">
+                          <p className="text-xs text-muted-foreground">
+                            {t("Select permissions to add")}
+                          </p>
+                          <div className="max-h-36 overflow-y-auto rounded-lg border border-purple-500/20 bg-background/40 p-2">
+                            {CAPABILITIES.filter(
+                              (cap) =>
+                                !(selectedUser.capabilities || []).includes(cap),
+                            ).length > 0 ? (
+                              <div className="flex flex-wrap gap-2">
+                                {CAPABILITIES.filter(
+                                  (cap) =>
+                                    !(
+                                      selectedUser.capabilities || []
+                                    ).includes(cap),
+                                ).map((cap) => {
+                                  const isSelected =
+                                    capabilitiesToAdd.includes(cap);
+                                  return (
+                                    <button
+                                      key={cap}
+                                      type="button"
+                                      onClick={() => toggleCapabilityToAdd(cap)}
+                                      className={`px-2 py-1 rounded-md text-xs border transition-colors ${
+                                        isSelected
+                                          ? "bg-purple-500/20 border-purple-500/50 text-purple-700 dark:text-purple-300"
+                                          : "bg-background border-border text-foreground hover:bg-purple-500/10"
+                                      }`}
+                                    >
+                                      {cap}
+                                    </button>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-muted-foreground">
+                                {t("All permissions are already assigned")}
+                              </p>
+                            )}
+                          </div>
+                          <div className="flex items-center justify-between gap-2">
+                            <p className="text-xs text-muted-foreground">
+                              {capabilitiesToAdd.length} {t("selected")}
+                            </p>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="h-9"
+                              onClick={handleAddCapability}
+                              disabled={
+                                capabilitiesToAdd.length === 0 ||
+                                updateUserMutation.isPending
+                              }
+                            >
+                              {t("Add selected")}
+                            </Button>
+                          </div>
+                        </div>
+                      )}
+
+                      {selectedUser.capabilities &&
+                      selectedUser.capabilities.length > 0 ? (
+                        <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                          {selectedUser.capabilities.map((cap, index) => (
+                            <span
+                              key={cap}
+                              className="inline-flex items-center gap-1 px-3 py-1.5 rounded-lg bg-purple-500/20 text-purple-700 dark:text-purple-300 text-xs font-medium border border-purple-500/30 animate-slide-in-right"
+                              style={{ animationDelay: `${index * 30}ms` }}
+                            >
+                              <Sparkles className="w-3 h-3" />
+                              {cap}
+                              {currentUser?.role === UserRole.WSP_ADMIN && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleRemoveCapability(cap)}
+                                  disabled={updateUserMutation.isPending}
+                                  className="ml-1 rounded-full p-0.5 hover:bg-purple-500/30 transition-colors disabled:opacity-50"
+                                  title={t("Remove permission")}
+                                >
+                                  <XCircle className="w-3 h-3" />
+                                </button>
+                              )}
+                            </span>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="text-sm text-muted-foreground">
+                          {t("No capabilities assigned")}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 )}
 

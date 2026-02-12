@@ -1,6 +1,7 @@
 import { NavLink } from "react-router-dom";
 import { cn } from "@/lib/utils";
 import { useStore } from "@/store/auth-store";
+import { UserRole } from "@/types/api.types";
 import {
   LayoutDashboard,
   Users,
@@ -14,6 +15,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Wifi,
+  Lock,
 } from "lucide-react";
 import { useState, useEffect } from "react";
 import { useTranslation } from "react-i18next";
@@ -28,41 +30,63 @@ const navItems = [
     icon: LayoutDashboard,
     label: "Dashboard",
     path: "/dashboard",
-    roles: ["admin", "pos_manager", "viewer", "support"],
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN, UserRole.POS_MANAGER],
   },
-  { icon: Users, label: "Users", path: "/users", roles: ["admin"] },
+  {
+    icon: Users,
+    label: "Users",
+    path: "/users",
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN],
+    capabilities: ["USERS_READ"],
+  },
   {
     icon: Building2,
     label: "POS Management",
     path: "/pos",
-    roles: ["admin", "pos_manager"],
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN],
+    capabilities: ["POS_READ"],
   },
   {
     icon: UserCircle,
     label: "Clients",
     path: "/clients",
-    roles: ["admin", "pos_manager", "support"],
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN, UserRole.POS_MANAGER],
+    capabilities: ["CLIENTS_READ"],
   },
   {
     icon: CreditCard,
     label: "Billing",
     path: "/billing",
-    roles: ["admin", "pos_manager"],
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN, UserRole.POS_MANAGER],
+    capabilities: ["INVOICES_READ", "PAYMENTS_READ"],
+    requireAnyCapability: true,
   },
-  { icon: Network, label: "Network", path: "/network", roles: ["admin"] },
+  {
+    icon: Network,
+    label: "Network",
+    path: "/network",
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN, UserRole.POS_MANAGER],
+    capabilities: ["STATIC_IP_READ"],
+  },
   {
     icon: FileText,
     label: "Logs & Requests",
     path: "/logs",
-    roles: ["admin", "pos_manager"],
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN, UserRole.POS_MANAGER],
+    capabilities: ["AUDIT_LOGS_READ"],
   },
   {
     icon: Bell,
     label: "Notifications",
     path: "/notifications",
-    roles: ["admin", "pos_manager", "support"],
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN, UserRole.POS_MANAGER],
   },
-  { icon: Settings, label: "Settings", path: "/settings", roles: ["admin"] },
+  {
+    icon: Settings,
+    label: "Settings",
+    path: "/settings",
+    roles: [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN, UserRole.POS_MANAGER],
+  },
 ];
 
 export function Sidebar({ collapsed, onToggle }: SidebarProps) {
@@ -75,7 +99,22 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   // Detect if current language is RTL
   const isRTL = i18n.dir() === "rtl";
 
-  const filteredNav = navItems.map((item) => item);
+  const filteredNav = navItems.map((item) => {
+    const userCapabilities = user?.capabilities ?? [];
+    const isAdmin = user?.role === UserRole.WSP_ADMIN;
+    const roleAllowed = !!user?.role && item.roles.includes(user.role);
+    const hasCapabilities =
+      !item.capabilities ||
+      item.capabilities.length === 0 ||
+      (item.requireAnyCapability
+        ? item.capabilities.some((cap) => userCapabilities.includes(cap))
+        : item.capabilities.every((cap) => userCapabilities.includes(cap)));
+
+    return {
+      ...item,
+      disabled: !(isAdmin || (roleAllowed && hasCapabilities)),
+    };
+  });
 
   useEffect(() => {
     const handleMouseMove = (e: MouseEvent) => {
@@ -198,23 +237,9 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
       {/* Navigation */}
       <nav className="flex-1 py-4 px-2 space-y-1 overflow-y-auto relative z-10 custom-scrollbar">
-        {filteredNav.map((item, index) => (
-          <NavLink
-            key={item.path}
-            to={item.path}
-            style={{ animationDelay: `${index * 0.05}s` }}
-            className={({ isActive }) =>
-              cn(
-                "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group overflow-hidden animate-fade-in-slide",
-                !isExpanded && "justify-center px-2",
-                isActive
-                  ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
-                  : "text-sidebar-foreground hover:bg-sidebar-accent/70 hover:shadow-md",
-              )
-            }
-          >
-            {({ isActive }) => (
-              <>
+        {filteredNav.map((item, index) => {
+          const content = (isActive: boolean) => (
+            <>
                 {/* Active background gradient */}
                 {isActive && (
                   <>
@@ -309,10 +334,52 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     ))}
                   </div>
                 )}
-              </>
-            )}
-          </NavLink>
-        ))}
+            </>
+          );
+
+          if (item.disabled) {
+            return (
+              <div
+                key={item.path}
+                style={{ animationDelay: `${index * 0.05}s` }}
+                className={cn(
+                  "relative flex items-center gap-3 px-3 py-3 rounded-xl group overflow-hidden animate-fade-in-slide",
+                  !isExpanded && "justify-center px-2",
+                  "text-sidebar-foreground/60 bg-sidebar-accent/30 pointer-events-none select-none",
+                )}
+                title={t("No permission for this section")}
+              >
+                <div className="absolute inset-0 backdrop-blur-[1px] opacity-70" />
+                {content(false)}
+                <Lock
+                  className={cn(
+                    "w-3.5 h-3.5 absolute text-sidebar-foreground/70",
+                    isRTL ? "left-2" : "right-2",
+                  )}
+                />
+              </div>
+            );
+          }
+
+          return (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              style={{ animationDelay: `${index * 0.05}s` }}
+              className={({ isActive }) =>
+                cn(
+                  "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group overflow-hidden animate-fade-in-slide",
+                  !isExpanded && "justify-center px-2",
+                  isActive
+                    ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
+                    : "text-sidebar-foreground hover:bg-sidebar-accent/70 hover:shadow-md",
+                )
+              }
+            >
+              {({ isActive }) => content(isActive)}
+            </NavLink>
+          );
+        })}
       </nav>
 
       {/* User info */}

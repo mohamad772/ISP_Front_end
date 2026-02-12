@@ -7,10 +7,13 @@ export const bandwidthPoolKeys = {
   detail: () => [...bandwidthPoolKeys.all, "detail"] as const,
 };
 
-export function useBandwidthPool(): UseQueryResult<BandwidthPool, Error> {
+export function useBandwidthPool(
+  enabled = true,
+): UseQueryResult<BandwidthPool, Error> {
   return useQuery({
     queryKey: bandwidthPoolKeys.detail(),
     queryFn: getBandwidthPool,
+    enabled,
   });
 }
 

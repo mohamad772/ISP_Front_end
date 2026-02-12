@@ -39,9 +39,12 @@ import {
   Loader2,
   FileText,
   Palette,
+  Lock,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useStore } from "@/store/auth-store";
+import { UserRole } from "@/types/api.types";
 import { applyTheme, getStoredTheme } from "@/utils/theme";
 import {
   useSettings,
@@ -65,7 +68,9 @@ import { exportInvoicesAdvanced } from "@/utils/advancedPdfExport";
 export function SettingsPage() {
   const { t, i18n } = useTranslation();
   const { toast } = useToast();
-  const { data: settings, isLoading } = useSettings();
+  const user = useStore((state) => state.user);
+  const isAppearanceOnly = user?.role === UserRole.POS_MANAGER;
+  const { data: settings, isLoading } = useSettings(!isAppearanceOnly);
   const { data: invoicesData } = useInvoices();
   const updateMutation = useUpdateSettings();
   const exportInvoicesExcelMutation = useExportInvoicesExcel();
@@ -74,7 +79,7 @@ export function SettingsPage() {
   const clearCacheMutation = useClearSystemCache();
   const sessionsMutation = useActiveSessions();
   const { data: bandwidthPool, isLoading: isBandwidthLoading } =
-    useBandwidthPool();
+    useBandwidthPool(!isAppearanceOnly);
   const updateBandwidthMutation = useUpdateBandwidthPool();
 
   const [healthDialogOpen, setHealthDialogOpen] = useState(false);
@@ -113,6 +118,7 @@ export function SettingsPage() {
   }, [bandwidthPool]);
 
   const handleUpdate = async (partial: Partial<typeof form>) => {
+    if (isAppearanceOnly) return;
     const next = { ...form, ...partial };
     setForm(next);
     try {
@@ -124,6 +130,7 @@ export function SettingsPage() {
   };
 
   const handleUpdateBandwidth = async () => {
+    if (isAppearanceOnly) return;
     const next = Math.max(1, Number(totalBandwidthMbps || 0));
     setTotalBandwidthMbps(next);
     try {
@@ -212,7 +219,9 @@ export function SettingsPage() {
 
       toast({
         title: t("Advanced PDF export completed"),
-        description: t("Generated with {{theme}} theme", { theme: colorScheme }),
+        description: t("Generated with {{theme}} theme", {
+          theme: colorScheme,
+        }),
       });
     } catch (error) {
       console.error("Advanced PDF export error:", error);
@@ -227,6 +236,7 @@ export function SettingsPage() {
   };
 
   const handleHealthCheck = async () => {
+    if (isAppearanceOnly) return;
     try {
       const data = await healthMutation.mutateAsync();
       setHealthData(data);
@@ -237,6 +247,7 @@ export function SettingsPage() {
   };
 
   const handleClearCache = async () => {
+    if (isAppearanceOnly) return;
     try {
       const result = await clearCacheMutation.mutateAsync();
       toast({ title: result.message || t("Cache cleared") });
@@ -246,6 +257,7 @@ export function SettingsPage() {
   };
 
   const handleViewSessions = async () => {
+    if (isAppearanceOnly) return;
     try {
       const sessions = await sessionsMutation.mutateAsync();
       setActiveSessions(sessions);
@@ -286,7 +298,15 @@ export function SettingsPage() {
       </div>
 
       <div className="grid gap-6 lg:grid-cols-2 relative z-10">
-        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-left-8 duration-1000 delay-150">
+        <Card
+          className={`group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-left-8 duration-1000 delay-150 ${isAppearanceOnly ? "blur-[2px] opacity-60 pointer-events-none select-none" : ""}`}
+        >
+          {isAppearanceOnly && (
+            <div className="absolute top-3 right-3 z-20 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-xs font-medium">
+              <Lock className="w-3.5 h-3.5" />
+              {t("Locked")}
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-br from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <div className="absolute top-0 right-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 -translate-y-1/2 translate-x-1/2 group-hover:scale-150" />
 
@@ -361,7 +381,15 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-right-8 duration-1000 delay-150">
+        <Card
+          className={`group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-right-8 duration-1000 delay-150 ${isAppearanceOnly ? "blur-[2px] opacity-60 pointer-events-none select-none" : ""}`}
+        >
+          {isAppearanceOnly && (
+            <div className="absolute top-3 right-3 z-20 inline-flex items-center gap-1 rounded-full bg-background/90 px-2 py-1 text-xs font-medium">
+              <Lock className="w-3.5 h-3.5" />
+              {t("Locked")}
+            </div>
+          )}
           <div className="absolute inset-0 bg-gradient-to-bl from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <div className="absolute bottom-0 left-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 translate-y-1/2 -translate-x-1/2 group-hover:scale-150" />
 
@@ -407,7 +435,9 @@ export function SettingsPage() {
                 <Button
                   variant="outline"
                   onClick={handleUpdateBandwidth}
-                  disabled={isBandwidthLoading || updateBandwidthMutation.isPending}
+                  disabled={
+                    isBandwidthLoading || updateBandwidthMutation.isPending
+                  }
                 >
                   {updateBandwidthMutation.isPending ? (
                     <>
@@ -423,7 +453,7 @@ export function SettingsPage() {
           </CardContent>
         </Card>
 
-        <Card className="group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-right-8 duration-1000 delay-150">
+        <Card className="h-48 group relative overflow-hidden transition-all duration-700 hover:shadow-[0_20px_70px_-15px_rgba(0,0,0,0.3)] border-border/50 animate-in slide-in-from-right-8 duration-1000 delay-150">
           <div className="absolute inset-0 bg-gradient-to-bl from-primary/10 via-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-700" />
           <div className="absolute bottom-0 left-0 w-40 h-40 bg-primary/5 rounded-full blur-3xl group-hover:bg-primary/10 transition-all duration-700 translate-y-1/2 -translate-x-1/2 group-hover:scale-150" />
 
@@ -532,48 +562,6 @@ export function SettingsPage() {
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>
-
-            <div className="animate-in slide-in-from-right duration-700 delay-300">
-              <Button
-                variant="outline"
-                className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
-                onClick={handleHealthCheck}
-                disabled={healthMutation.isPending}
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
-                <span className="relative z-10">
-                  {healthMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
-                      Checking...
-                    </>
-                  ) : (
-                    "System Health Check"
-                  )}
-                </span>
-              </Button>
-            </div>
-
-            <div className="animate-in slide-in-from-right duration-700 delay-350">
-              <Button
-                variant="outline"
-                className="w-full relative overflow-hidden group/button transition-all duration-500 hover:shadow-lg hover:scale-[1.02]"
-                onClick={handleClearCache}
-                disabled={clearCacheMutation.isPending}
-              >
-                <span className="absolute inset-0 bg-gradient-to-r from-primary/10 to-transparent opacity-0 group-hover/button:opacity-100 transition-opacity duration-500" />
-                <span className="relative z-10">
-                  {clearCacheMutation.isPending ? (
-                    <>
-                      <Loader2 className="w-4 h-4 mr-2 inline animate-spin" />
-                      Clearing...
-                    </>
-                  ) : (
-                    "Clear Cache"
-                  )}
-                </span>
-              </Button>
-            </div>
           </CardContent>
         </Card>
 
@@ -596,7 +584,9 @@ export function SettingsPage() {
                 {t("Language")}
               </span>
             </CardTitle>
-            <CardDescription>{t("Switch between Arabic and English")}</CardDescription>
+            <CardDescription>
+              {t("Switch between Arabic and English")}
+            </CardDescription>
           </CardHeader>
           <CardContent className="space-y-4 relative z-10">
             <div className="group/item flex items-center justify-between gap-4 p-4 rounded-xl bg-muted/30 hover:bg-muted/50 transition-all duration-500 border border-transparent hover:border-primary/20 animate-in slide-in-from-left duration-700 delay-200">

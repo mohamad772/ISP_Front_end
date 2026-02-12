@@ -25,10 +25,13 @@ export const settingsKeys = {
   detail: () => [...settingsKeys.all, "detail"] as const,
 };
 
-export function useSettings(): UseQueryResult<SystemSettings, Error> {
+export function useSettings(
+  enabled = true,
+): UseQueryResult<SystemSettings, Error> {
   return useQuery({
     queryKey: settingsKeys.detail(),
     queryFn: getSystemSettings,
+    enabled,
   });
 }
 

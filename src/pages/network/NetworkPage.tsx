@@ -30,6 +30,7 @@ import {
 import { StatCard } from "@/components/common/StatCard";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useStore } from "@/store/auth-store";
 import { usePOSList } from "@/hooks/usePos";
 import { useCreateStaticIP } from "@/hooks/useStaticIp";
 import { useStaticIPPools } from "@/hooks/useStaticIPPools";
@@ -40,6 +41,8 @@ type StaticIPBatchForm = Omit<CreateStaticIPRequest, "ipAddress">;
 export function NetworkPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const hasPermission = useStore((state) => state.hasPermission);
+  const canCreateStaticIP = hasPermission("STATIC_IP_CREATE");
   const { data: ipPoolsByPOS = [], isLoading: poolsLoading } =
     useStaticIPPools();
   const { data: posList = [] } = usePOSList();
@@ -286,10 +289,22 @@ export function NetworkPage() {
         title={t("Network Resources")}
         description={t("Manage bandwidth pool and static IP allocations")}
         actions={
-          <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+          <Dialog
+            open={canCreateStaticIP ? isCreateOpen : false}
+            onOpenChange={(open) => {
+              if (canCreateStaticIP) setIsCreateOpen(open);
+            }}
+          >
             <DialogTrigger asChild>
-              <Button>{t("Add Static IP")}</Button>
+              <Button
+                disabled={!canCreateStaticIP}
+                className={!canCreateStaticIP ? "blur-[1px] opacity-60" : ""}
+                title={!canCreateStaticIP ? t("No permission for this action") : undefined}
+              >
+                {t("Add Static IP")}
+              </Button>
             </DialogTrigger>
+            {canCreateStaticIP && (
             <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>{t("Add Static IP")}</DialogTitle>
@@ -405,6 +420,7 @@ export function NetworkPage() {
                 </Button>
               </div>
             </DialogContent>
+            )}
           </Dialog>
         }
       />

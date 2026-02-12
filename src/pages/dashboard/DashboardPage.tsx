@@ -14,7 +14,7 @@ import { useBandwidthPool } from "@/hooks/usebandwidthpool";
 import { useClients } from "@/hooks/useclients";
 import { useInvoices } from "@/hooks/useInvoices";
 import { usePayments } from "@/hooks/usepayments";
-import { usePOSList } from "@/hooks/usePos";
+import { usePOS, usePOSList } from "@/hooks/usePos";
 import { useSubscriptions } from "@/hooks/useSubscription";
 import { useAdminDashboardStats } from "@/hooks/useStats";
 import { cn } from "@/lib/utils";
@@ -49,6 +49,10 @@ export function DashboardPage() {
   const localeWithLatinDigits = "en-US";
   const exportLocale = localeWithLatinDigits;
   const { data: stats, isLoading: isStatsLoading } = useAdminDashboardStats();
+  const isPosManager = user?.role === "POS_MANAGER";
+  const { data: posDetails, isLoading: isPosDetailsLoading } = usePOS(
+    isPosManager ? (user?.posId ?? "") : "",
+  );
 
   // Bandwidth pool data
   const {
@@ -130,28 +134,38 @@ export function DashboardPage() {
         )
       : 0;
 
-  const bandwidthUsage = bandwidthData?.totalBandwidthMbps
-    ? safePercent(
-        bandwidthData.allocatedBandwidthMbps,
-        bandwidthData.totalBandwidthMbps,
-      )
-    : stats
-      ? safePercent(stats.usedBandwidth, stats.totalBandwidth)
-      : posAllocatedTotal > 0
-        ? safePercent(posUsedTotal, posAllocatedTotal)
-        : 0;
+  const globalTotalBandwidth = Number(bandwidthData?.totalBandwidthMbps ?? 0);
+  const globalAllocatedBandwidth = Number(
+    bandwidthData?.allocatedBandwidthMbps ?? 0,
+  );
+  const posAllocatedBandwidth = Number(posDetails?.allocatedBandwidthMbps ?? 0);
+  const posUsedBandwidth = Number(
+    (posDetails as { usedBandwidthMbps?: number; currentUsageMbps?: number })
+      ?.usedBandwidthMbps ??
+      (posDetails as { usedBandwidthMbps?: number; currentUsageMbps?: number })
+        ?.currentUsageMbps ??
+      0,
+  );
 
-  // Prefer bandwidth pool totals (editable from Settings)
-  const totalBandwidth =
-    bandwidthData?.totalBandwidthMbps ??
-    stats?.totalBandwidth ??
-    posAllocatedTotal ??
-    10000;
-  const allocatedBandwidth =
-    bandwidthData?.allocatedBandwidthMbps ??
-    stats?.usedBandwidth ??
-    posUsedTotal ??
-    0;
+  const bandwidthUsage = isPosManager
+    ? safePercent(posUsedBandwidth, posAllocatedBandwidth)
+    : globalTotalBandwidth > 0
+      ? safePercent(globalAllocatedBandwidth, globalTotalBandwidth)
+      : stats
+        ? safePercent(stats.usedBandwidth, stats.totalBandwidth)
+        : posAllocatedTotal > 0
+          ? safePercent(posUsedTotal, posAllocatedTotal)
+          : 0;
+
+  // POS managers see their POS allocation. Admins see full WSP allocation from bandwidth pool.
+  const totalBandwidth = isPosManager
+    ? posAllocatedBandwidth
+    : Number(
+        globalTotalBandwidth || stats?.totalBandwidth || posAllocatedTotal,
+      );
+  const totalPosAllocatedBandwidth = isPosManager
+    ? posAllocatedBandwidth
+    : Number(globalAllocatedBandwidth || posAllocatedTotal);
 
   // Calculate total payments
   const totalPayments = useMemo(() => {
@@ -204,7 +218,9 @@ export function DashboardPage() {
         .map((sub) => {
           const planName = sub.plan?.planName || "Plan";
           const status = sub.status.toLowerCase();
-          const start = new Date(sub.startDate).toLocaleDateString(exportLocale);
+          const start = new Date(sub.startDate).toLocaleDateString(
+            exportLocale,
+          );
           const end = new Date(sub.endDate).toLocaleDateString(exportLocale);
           const speed = sub.plan
             ? `${sub.plan.downloadSpeedMbps}/${sub.plan.uploadSpeedMbps} Mbps`
@@ -345,9 +361,14 @@ export function DashboardPage() {
       margin,
       55,
     );
-    doc.text(`${t("Total Clients")}: ${exportRows.length}`, pageWidth - margin, 55, {
-      align: "right",
-    });
+    doc.text(
+      `${t("Total Clients")}: ${exportRows.length}`,
+      pageWidth - margin,
+      55,
+      {
+        align: "right",
+      },
+    );
 
     currentY = 100;
 
@@ -500,11 +521,15 @@ export function DashboardPage() {
     addPageNumber();
 
     // Save
-    doc.save(`clients-subscriptions-${new Date().toISOString().slice(0, 10)}.pdf`);
+    doc.save(
+      `clients-subscriptions-${new Date().toISOString().slice(0, 10)}.pdf`,
+    );
 
     toast({
       title: t("PDF exported successfully"),
-      description: t("{{count}} clients exported", { count: exportRows.length }),
+      description: t("{{count}} clients exported", {
+        count: exportRows.length,
+      }),
     });
   };
 
@@ -513,6 +538,7 @@ export function DashboardPage() {
     isStatsLoading ||
     isBandwidthLoading ||
     isPosLoading ||
+    (isPosManager && isPosDetailsLoading) ||
     isAuditLoading ||
     isUnpaidInvoicesLoading ||
     isClientsLoading
@@ -534,7 +560,9 @@ export function DashboardPage() {
       <PageHeader
         title={t("Welcome back")}
         description={
-          isAdmin ? t("System overview and key metrics") : t("Your POS overview")
+          isAdmin
+            ? t("System overview and key metrics")
+            : t("Your POS overview")
         }
         actions={
           <DropdownMenu>
@@ -565,12 +593,11 @@ export function DashboardPage() {
       {/* KPI Cards */}
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <StatCard
-          title={t("Total Bandwidth")}
+          title={isPosManager ? t("Total Bandwidth") : t("Total Bandwidth")}
           value={`${totalBandwidth.toLocaleString(localeWithLatinDigits)} Mbps`}
-          subtitle={t("{{usage}}% utilized ({{allocated}} Mbps used)", {
-            usage: bandwidthUsage,
-            allocated: allocatedBandwidth.toLocaleString(localeWithLatinDigits),
-          })}
+          subtitle={`${bandwidthUsage}% utilized (${totalPosAllocatedBandwidth.toLocaleString(
+            localeWithLatinDigits,
+          )} Mbps POS allocated)`}
           icon={Wifi}
           variant="accent"
         />
@@ -636,7 +663,9 @@ export function DashboardPage() {
                 >
                   <p className="font-medium">{t(alert.message)}</p>
                   <p className="text-xs opacity-75 mt-1">
-                    {new Date(alert.timestamp).toLocaleString(localeWithLatinDigits)}
+                    {new Date(alert.timestamp).toLocaleString(
+                      localeWithLatinDigits,
+                    )}
                   </p>
                 </div>
               ))
@@ -654,9 +683,7 @@ export function DashboardPage() {
                 <FileWarning className="w-6 h-6 text-warning" />
               </div>
               <div>
-                <p className="text-2xl font-bold">
-                  ${unpaidInvoicesCount}
-                </p>
+                <p className="text-2xl font-bold">${unpaidInvoicesCount}</p>
                 <p className="text-sm text-muted-foreground">
                   {t("Unpaid Invoices")}
                 </p>

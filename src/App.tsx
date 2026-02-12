@@ -21,6 +21,7 @@ import { ClientPortalPage } from "@/pages/client/ClientPortalPage";
 import { NotificationsPage } from "@/pages/notifications/NotificationsPage";
 import { useStore } from "@/store/auth-store";
 import { initializeTheme } from "@/utils/theme";
+import { UserRole } from "@/types/api.types";
 import NotFound from "./pages/NotFound";
 import { LogsRequestsPage } from "./pages/LogsandRequests/LogsRequestsPage";
 
@@ -37,9 +38,43 @@ const RequireAuth = ({ children }: { children: JSX.Element }) => {
   return children;
 };
 
+const LockedPage = ({ section }: { section: string }) => (
+  <div className="relative rounded-xl border border-border/60 bg-card/70 p-10 overflow-hidden">
+    <div className="absolute inset-0 pointer-events-none">
+      <div className="absolute inset-0 backdrop-blur-[2px] opacity-80" />
+    </div>
+    <div className="relative z-10 text-center">
+      <h2 className="text-2xl font-semibold mb-3">{section}</h2>
+      <p className="text-muted-foreground">This section is disabled for your account.</p>
+    </div>
+  </div>
+);
+
 const App = () => {
   const isAuthenticated = useStore((state) => state.isAuthenticated);
   const user = useStore((state) => state.user);
+
+  const hasCapability = (capability: string) => {
+    if (!user) return false;
+    if (user.role === UserRole.WSP_ADMIN) return true;
+    return !!user.capabilities?.includes(capability);
+  };
+
+  const canAccessUsers =
+    !!user &&
+    [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN].includes(user.role) &&
+    hasCapability("USERS_READ");
+
+  const canAccessPosList =
+    !!user &&
+    [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN].includes(user.role) &&
+    hasCapability("POS_READ");
+
+  const canAccessSettings =
+    !!user &&
+    [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN, UserRole.POS_MANAGER].includes(
+      user.role,
+    );
 
   useEffect(() => {
     initializeTheme();
@@ -93,9 +128,18 @@ const App = () => {
             >
               <Route index element={<Navigate to="/dashboard" replace />} />
               <Route path="dashboard" element={<DashboardPage />} />
-              <Route path="users" element={<UsersPage />} />
-              <Route path="users/:id" element={<UsersPage />} />
-              <Route path="pos" element={<POSPage />} />
+              <Route
+                path="users"
+                element={canAccessUsers ? <UsersPage /> : <LockedPage section="Users" />}
+              />
+              <Route
+                path="users/:id"
+                element={canAccessUsers ? <UsersPage /> : <LockedPage section="Users" />}
+              />
+              <Route
+                path="pos"
+                element={canAccessPosList ? <POSPage /> : <LockedPage section="POS Management" />}
+              />
               <Route path="pos/:id" element={<POSDetailPage />} />
               <Route path="clients" element={<ClientsPage />} />
               <Route path="clients/:id" element={<ClientDetailPage />} />
@@ -104,7 +148,10 @@ const App = () => {
               <Route path="logs" element={<LogsRequestsPage />} />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="profile" element={<ProfilePage />} />
-              <Route path="settings" element={<SettingsPage />} />
+              <Route
+                path="settings"
+                element={canAccessSettings ? <SettingsPage /> : <LockedPage section="Settings" />}
+              />
             </Route>
             <Route path="*" element={<NotFound />} />
           </Routes>

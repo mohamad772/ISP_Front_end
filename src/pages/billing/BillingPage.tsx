@@ -40,6 +40,7 @@ import {
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
+import { useStore } from "@/store/auth-store";
 import { useInvoices, useCreateInvoice } from "@/hooks/useInvoices";
 import { usePayments, useCreatePayment } from "@/hooks/usepayments";
 import type { ServicePlan, Invoice, Payment } from "@/types/api.types";
@@ -67,6 +68,9 @@ const AnimatedBackground = () => {
 export function BillingPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const hasPermission = useStore((state) => state.hasPermission);
+  const canCreateInvoice = hasPermission("INVOICES_CREATE");
+  const canCreatePayment = hasPermission("PAYMENTS_CREATE");
   const { data: plans = [], isLoading: plansLoading } = useServicePlans();
   const { data: invoices = [], isLoading: invoicesLoading } = useInvoices();
   const { data: payments = [], isLoading: paymentsLoading } = usePayments();
@@ -429,13 +433,24 @@ export function BillingPage() {
         description={t("Manage service plans, invoices, and payments")}
         actions={
           <div className="flex gap-2">
-            <Dialog open={isInvoiceOpen} onOpenChange={setIsInvoiceOpen}>
+            <Dialog
+              open={canCreateInvoice ? isInvoiceOpen : false}
+              onOpenChange={(open) => {
+                if (canCreateInvoice) setIsInvoiceOpen(open);
+              }}
+            >
               <DialogTrigger asChild>
-                <Button onClick={openInvoice}>
+                <Button
+                  onClick={canCreateInvoice ? openInvoice : undefined}
+                  disabled={!canCreateInvoice}
+                  className={!canCreateInvoice ? "blur-[1px] opacity-60" : ""}
+                  title={!canCreateInvoice ? t("No permission for this action") : undefined}
+                >
                   <Plus className="w-4 h-4 mr-2" />
                   {t("Create Invoice")}
                 </Button>
               </DialogTrigger>
+              {canCreateInvoice && (
               <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
                 <AnimatedBackground />
                 <div className="relative glass-morphism p-6 border-b border-white/10">
@@ -527,13 +542,26 @@ export function BillingPage() {
                   </Button>
                 </div>
               </DialogContent>
+              )}
             </Dialog>
-            <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
+            <Dialog
+              open={canCreatePayment ? isPaymentOpen : false}
+              onOpenChange={(open) => {
+                if (canCreatePayment) setIsPaymentOpen(open);
+              }}
+            >
               <DialogTrigger asChild>
-                <Button variant="outline" onClick={openPayment}>
+                <Button
+                  variant="outline"
+                  onClick={canCreatePayment ? openPayment : undefined}
+                  disabled={!canCreatePayment}
+                  className={!canCreatePayment ? "blur-[1px] opacity-60" : ""}
+                  title={!canCreatePayment ? t("No permission for this action") : undefined}
+                >
                   {t("Record Payment")}
                 </Button>
               </DialogTrigger>
+              {canCreatePayment && (
               <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
                 <AnimatedBackground />
                 <div className="relative glass-morphism p-6 border-b border-white/10">
@@ -638,6 +666,7 @@ export function BillingPage() {
                   </Button>
                 </div>
               </DialogContent>
+              )}
             </Dialog>
             <Dialog open={isPlanOpen} onOpenChange={setIsPlanOpen}>
               <DialogTrigger asChild>

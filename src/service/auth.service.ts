@@ -125,11 +125,13 @@ function normalizeLoginResponse(raw: RawLoginResponse): LoginResponse {
     if ((!user.capabilities || user.capabilities.length === 0) && permissions) {
       user = { ...user, capabilities: permissions };
     }
-    if (
-      user.role === UserRole.POS_MANAGER &&
-      (!user.capabilities || user.capabilities.length === 0)
-    ) {
-      user = { ...user, capabilities: getPosManagerCapabilities() };
+    if (user.role === UserRole.POS_MANAGER) {
+      user = {
+        ...user,
+        capabilities: Array.from(
+          new Set([...(user.capabilities ?? []), ...getPosManagerCapabilities()]),
+        ),
+      };
     }
     const role = normalizeRole(user.role);
     if (!role && access_token) {
@@ -179,7 +181,10 @@ function getPosManagerCapabilities(): string[] {
     "SUBSCRIPTIONS_UPGRADE",
     "USAGE_LOGS_CREATE",
     "USAGE_LOGS_READ",
+    "INVOICES_CREATE",
     "INVOICES_READ",
+    "PAYMENTS_CREATE",
+    "PAYMENTS_READ",
     "SERVICE_PLANS_READ",
     "STATIC_IP_READ",
     "BANDWIDTH_POOL_READ",
