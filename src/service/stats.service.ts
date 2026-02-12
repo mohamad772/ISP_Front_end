@@ -2,6 +2,7 @@ import type {
   DashboardStats,
   POSDashboardStats,
 } from "@/types/api.types";
+import i18n from "@/i18n";
 
 const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 
@@ -21,19 +22,19 @@ export async function getAdminDashboardStats(): Promise<DashboardStats> {
       {
         id: "1",
         type: "warning",
-        message: "POS Downtown bandwidth usage at 85%",
+        message: i18n.t("POS Downtown bandwidth usage at 85%"),
         timestamp: new Date().toISOString(),
       },
       {
         id: "2",
         type: "error",
-        message: "Client payment overdue - ID #1234",
+        message: i18n.t("Client payment overdue - ID #1234"),
         timestamp: new Date(Date.now() - 3600000).toISOString(),
       },
       {
         id: "3",
         type: "info",
-        message: "System backup completed successfully",
+        message: i18n.t("System backup completed successfully"),
         timestamp: new Date(Date.now() - 7200000).toISOString(),
       },
     ],

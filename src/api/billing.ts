@@ -1,4 +1,5 @@
 import type { ServicePlan, Subscription, Invoice, Payment } from '@/types';
+import i18n from '@/i18n';
 
 const mockPlans: ServicePlan[] = [
   { id: 'plan-1', name: 'Home Basic', description: 'Perfect for light home use', bandwidth: 25, price: 50, isActive: true, features: ['25 Mbps Download', '10 Mbps Upload', 'Email Support'] },
@@ -25,28 +26,46 @@ const mockPayments: Payment[] = [
   { id: 'pay-2', invoiceId: 'inv-4', clientId: 'c-4', clientName: 'David Brown', amount: 300, method: 'card', date: '2024-03-10', reference: 'CRD-002' },
 ];
 
+const translatePlan = (plan: ServicePlan): ServicePlan => ({
+  ...plan,
+  name: i18n.t(plan.name),
+  description: i18n.t(plan.description),
+  features: plan.features.map((feature) => i18n.t(feature)),
+});
+
 export const billingApi = {
   // Plans
   getPlans: async (): Promise<ServicePlan[]> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    return [...mockPlans];
+    return mockPlans.map(translatePlan);
   },
   getPlanById: async (id: string): Promise<ServicePlan | undefined> => {
     await new Promise((resolve) => setTimeout(resolve, 300));
-    return mockPlans.find(p => p.id === id);
+    const plan = mockPlans.find(p => p.id === id);
+    return plan ? translatePlan(plan) : undefined;
   },
 
   // Subscriptions
   getSubscriptions: async (clientId?: string): Promise<Subscription[]> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    if (clientId) return mockSubscriptions.filter(s => s.clientId === clientId);
-    return [...mockSubscriptions];
+    const translated = mockSubscriptions.map((subscription) => ({
+      ...subscription,
+      planName: i18n.t(subscription.planName),
+    }));
+    if (clientId) return translated.filter(s => s.clientId === clientId);
+    return translated;
   },
 
   // Invoices
   getInvoices: async (filters?: { clientId?: string; status?: string }): Promise<Invoice[]> => {
     await new Promise((resolve) => setTimeout(resolve, 500));
-    let result = [...mockInvoices];
+    let result = mockInvoices.map((invoice) => ({
+      ...invoice,
+      items: invoice.items.map((item) => ({
+        ...item,
+        description: i18n.t(item.description),
+      })),
+    }));
     if (filters?.clientId) result = result.filter(i => i.clientId === filters.clientId);
     if (filters?.status) result = result.filter(i => i.status === filters.status);
     return result;

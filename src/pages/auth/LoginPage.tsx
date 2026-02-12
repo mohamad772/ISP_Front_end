@@ -10,11 +10,13 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { useToast } from "@/hooks/use-toast";
 import { Wifi, Loader2, Lock, User, Shield, Zap, Signal } from "lucide-react";
 import { useLogin } from "@/hooks/useAuth";
 import { useStore } from "@/store/auth-store";
 import { isAxiosError } from "axios";
+import { useTranslation } from "react-i18next";
 
 export function LoginPage() {
   const [username, setUsername] = useState("");
@@ -22,18 +24,22 @@ export function LoginPage() {
   const [focusedField, setFocusedField] = useState<string | null>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
   const [isHovering, setIsHovering] = useState(false);
+  const [loginError, setLoginError] = useState<string | null>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
+  const { t } = useTranslation();
   const { toast } = useToast();
   const navigate = useNavigate();
   const isAuthenticated = useStore((state) => state.isAuthenticated);
+  const user = useStore((state) => state.user);
 
   const { mutate, isPending } = useLogin();
 
   // Redirect if already authenticated
-  if (isAuthenticated) {
-    navigate("/dashboard");
-    return null;
-  }
+  useEffect(() => {
+    if (!isAuthenticated || !user) return;
+    const target = user.role === "CLIENT" ? "/client" : "/dashboard";
+    navigate(target, { replace: true });
+  }, [isAuthenticated, user, navigate]);
 
   // Advanced particle system
   useEffect(() => {
@@ -153,11 +159,12 @@ export function LoginPage() {
       return error.message;
     }
 
-    return "Invalid credentials. Please try again.";
+    return t("Invalid credentials. Please try again.");
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setLoginError(null);
 
     mutate(
       {
@@ -167,15 +174,27 @@ export function LoginPage() {
       {
         onSuccess: (data) => {
           toast({
-            title: "Login successful",
-            description: `Welcome back, ${data.user.username}!`,
+            title: t("Login successful"),
+            description: t("Welcome back, {{name}}!", {
+              name: data.user.username,
+            }),
           });
-          navigate("/dashboard");
+          const target = data.user.role === "CLIENT" ? "/client" : "/welcome";
+          const snapshot = useStore.getState();
+          console.log("[Login] user:", snapshot.user);
+          console.log("[Login] isAuthenticated:", snapshot.isAuthenticated);
+          console.log("[Login] current path:", window.location.pathname);
+          console.log("[Login] navigating to:", target);
+          navigate(target);
+          setTimeout(() => {
+            console.log("[Login] path after navigate:", window.location.pathname);
+          }, 0);
         },
         onError: (error) => {
           console.error(error);
+          setLoginError(getErrorMessage(error));
           toast({
-            title: "Login failed",
+            title: t("Login failed"),
             description: getErrorMessage(error),
             variant: "destructive",
           });
@@ -306,14 +325,20 @@ export function LoginPage() {
               <CardHeader className="space-y-2 pb-6 pt-8">
                 <CardTitle className="text-3xl font-bold flex items-center gap-3">
                   <Shield className="w-7 h-7 text-primary animate-pulse-slow" />
-                  Secure Access
+                  {t("Secure Access")}
                 </CardTitle>
                 <CardDescription className="text-sm">
-                  Authenticate with your credentials to access the control panel
+                  {t("Authenticate with your credentials to access the control panel")}
                 </CardDescription>
               </CardHeader>
 
               <CardContent className="relative pb-8">
+                {loginError && (
+                  <Alert variant="destructive" className="mb-4">
+                    <AlertTitle>{t("Login failed")}</AlertTitle>
+                    <AlertDescription>{loginError}</AlertDescription>
+                  </Alert>
+                )}
                 <form onSubmit={handleSubmit} className="space-y-6">
                   {/* Username Field with Advanced Styling */}
                   <div className="space-y-3 animate-slide-fade-left">
@@ -322,7 +347,7 @@ export function LoginPage() {
                       className="text-sm font-semibold flex items-center gap-2"
                     >
                       <User className="w-4 h-4" />
-                      Username
+                      {t("Username")}
                     </Label>
                     <div className="relative group/input">
                       {/* Glow effect */}
@@ -346,7 +371,7 @@ export function LoginPage() {
                           onChange={(e) => setUsername(e.target.value)}
                           onFocus={() => setFocusedField("username")}
                           onBlur={() => setFocusedField(null)}
-                          placeholder="Enter your username"
+                          placeholder={t("Enter your username")}
                           className="h-14 pl-12 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-primary/50 focus:shadow-lg focus:shadow-primary/20"
                           required
                         />
@@ -368,7 +393,7 @@ export function LoginPage() {
                       className="text-sm font-semibold flex items-center gap-2"
                     >
                       <Lock className="w-4 h-4" />
-                      Password
+                      {t("Password")}
                     </Label>
                     <div className="relative group/input">
                       {/* Glow effect */}
@@ -392,7 +417,7 @@ export function LoginPage() {
                           onChange={(e) => setPassword(e.target.value)}
                           onFocus={() => setFocusedField("password")}
                           onBlur={() => setFocusedField(null)}
-                          placeholder="Enter your password"
+                          placeholder={t("Enter your password")}
                           className="h-14 pl-12 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-primary/50 focus:shadow-lg focus:shadow-primary/20"
                           required
                         />
@@ -443,13 +468,13 @@ export function LoginPage() {
                         {isPending ? (
                           <>
                             <Loader2 className="w-5 h-5 animate-spin" />
-                            <span className="animate-pulse">
-                              Authenticating...
+                              <span className="animate-pulse">
+                              {t("Authenticating...")}
                             </span>
                           </>
                         ) : (
                           <>
-                            <span>Sign In</span>
+                            <span>{t("Sign In")}</span>
                             <div className="group-hover/btn:translate-x-1 transition-transform duration-300 text-xl">
                               →
                             </div>

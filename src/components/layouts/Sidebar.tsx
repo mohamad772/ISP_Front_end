@@ -9,11 +9,14 @@ import {
   CreditCard,
   Network,
   FileText,
+  Bell,
   Settings,
   ChevronLeft,
+  ChevronRight,
   Wifi,
 } from "lucide-react";
 import { useState, useEffect } from "react";
+import { useTranslation } from "react-i18next";
 
 interface SidebarProps {
   collapsed: boolean;
@@ -53,6 +56,12 @@ const navItems = [
     path: "/logs",
     roles: ["admin", "pos_manager"],
   },
+  {
+    icon: Bell,
+    label: "Notifications",
+    path: "/notifications",
+    roles: ["admin", "pos_manager", "support"],
+  },
   { icon: Settings, label: "Settings", path: "/settings", roles: ["admin"] },
 ];
 
@@ -61,10 +70,11 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
   const [mouseY, setMouseY] = useState(0);
   const [isNearSidebar, setIsNearSidebar] = useState(false);
   const [autoExpanded, setAutoExpanded] = useState(false);
+  const { t, i18n } = useTranslation();
 
-  // const filteredNav = navItems.filter(item =>
-  //      user && item.roles.includes(user.role);
-  // );
+  // Detect if current language is RTL
+  const isRTL = i18n.dir() === "rtl";
+
   const filteredNav = navItems.map((item) => item);
 
   useEffect(() => {
@@ -74,8 +84,12 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         const rect = sidebar.getBoundingClientRect();
         setMouseY(e.clientY - rect.top);
 
-        // Check if mouse is near the sidebar (within 100px from left edge)
-        const isNear = e.clientX < 120;
+        // Check if mouse is near the sidebar
+        // For LTR: within 120px from left edge
+        // For RTL: within 120px from right edge
+        const isNear = isRTL
+          ? window.innerWidth - e.clientX < 120
+          : e.clientX < 120;
         setIsNearSidebar(isNear);
 
         // Auto-expand when mouse is near and sidebar is collapsed
@@ -89,17 +103,20 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
 
     window.addEventListener("mousemove", handleMouseMove);
     return () => window.removeEventListener("mousemove", handleMouseMove);
-  }, [collapsed, autoExpanded]);
+  }, [collapsed, autoExpanded, isRTL]);
 
   const isExpanded = !collapsed || autoExpanded;
 
   return (
     <aside
       className={cn(
-        "bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-500 ease-in-out border-r border-sidebar-border fixed left-0 top-0 h-screen shrink-0 relative overflow-hidden z-40",
+        "bg-sidebar text-sidebar-foreground flex flex-col transition-all duration-500 ease-in-out border-sidebar-border fixed top-0 h-screen shrink-0 relative overflow-hidden z-40",
         isExpanded ? "w-64" : "w-16",
         "hidden md:flex",
+        // RTL/LTR positioning and borders
+        isRTL ? "right-0 border-l" : "left-0 border-r",
       )}
+      dir={isRTL ? "rtl" : "ltr"}
     >
       {/* Animated Background Effects */}
       <div className="absolute inset-0 opacity-30 pointer-events-none">
@@ -112,9 +129,19 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
       {/* Subtle Grid Pattern */}
       <div className="absolute inset-0 opacity-5 pointer-events-none bg-grid-pattern-sidebar" />
 
-      {/* Floating Orbs */}
-      <div className="absolute top-20 -left-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl animate-float-slow pointer-events-none" />
-      <div className="absolute bottom-20 -right-20 w-32 h-32 bg-primary/10 rounded-full blur-3xl animate-float-delayed pointer-events-none" />
+      {/* Floating Orbs - adjusted for RTL */}
+      <div
+        className={cn(
+          "absolute top-20 w-40 h-40 bg-primary/10 rounded-full blur-3xl animate-float-slow pointer-events-none",
+          isRTL ? "-right-20" : "-left-20",
+        )}
+      />
+      <div
+        className={cn(
+          "absolute bottom-20 w-32 h-32 bg-primary/10 rounded-full blur-3xl animate-float-delayed pointer-events-none",
+          isRTL ? "-left-20" : "-right-20",
+        )}
+      />
 
       {/* Logo */}
       <div className="h-16 flex items-center justify-between px-4 border-b border-sidebar-border relative z-10 bg-sidebar/80 backdrop-blur-sm">
@@ -151,12 +178,21 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         >
           {/* Button glow */}
           <div className="absolute inset-0 bg-primary/20 opacity-0 group-hover:opacity-100 blur transition-opacity duration-300" />
-          <ChevronLeft
-            className={cn(
-              "w-4 h-4 text-sidebar-foreground/80 relative z-10 transition-transform duration-300",
-              isExpanded ? "rotate-0" : "rotate-180",
-            )}
-          />
+          {isRTL ? (
+            <ChevronRight
+              className={cn(
+                "w-4 h-4 text-sidebar-foreground/80 relative z-10 transition-transform duration-300",
+                isExpanded ? "rotate-0" : "rotate-180",
+              )}
+            />
+          ) : (
+            <ChevronLeft
+              className={cn(
+                "w-4 h-4 text-sidebar-foreground/80 relative z-10 transition-transform duration-300",
+                isExpanded ? "rotate-0" : "rotate-180",
+              )}
+            />
+          )}
         </button>
       </div>
 
@@ -169,7 +205,7 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
             style={{ animationDelay: `${index * 0.05}s` }}
             className={({ isActive }) =>
               cn(
-                "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group overflow-hidden animate-fade-in-left",
+                "relative flex items-center gap-3 px-3 py-3 rounded-xl transition-all duration-300 group overflow-hidden animate-fade-in-slide",
                 !isExpanded && "justify-center px-2",
                 isActive
                   ? "bg-primary text-primary-foreground shadow-lg shadow-primary/30"
@@ -185,8 +221,15 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                     <div className="absolute inset-0 bg-gradient-to-r from-primary via-primary to-primary/80 animate-gradient-flow" />
                     <div className="absolute inset-0 bg-gradient-to-br from-white/10 to-transparent" />
 
-                    {/* Active indicator line */}
-                    <div className="absolute left-0 top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground rounded-r-full shadow-lg shadow-primary-foreground/50 animate-slide-in-right" />
+                    {/* Active indicator line - adjusted for RTL */}
+                    <div
+                      className={cn(
+                        "absolute top-1/2 -translate-y-1/2 w-1 h-8 bg-primary-foreground shadow-lg shadow-primary-foreground/50 animate-slide-in",
+                        isRTL
+                          ? "right-0 rounded-l-full"
+                          : "left-0 rounded-r-full",
+                      )}
+                    />
                   </>
                 )}
 
@@ -220,19 +263,33 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
                       "relative z-10 font-medium transition-all duration-300",
                       isActive
                         ? "font-semibold"
-                        : "group-hover:translate-x-1 group-hover:font-semibold",
+                        : isRTL
+                          ? "group-hover:-translate-x-1 group-hover:font-semibold"
+                          : "group-hover:translate-x-1 group-hover:font-semibold",
                     )}
                   >
-                    {item.label}
+                    {t(item.label)}
                   </span>
                 )}
 
-                {/* Tooltip for collapsed state */}
+                {/* Tooltip for collapsed state - adjusted for RTL */}
                 {!isExpanded && (
-                  <div className="absolute left-full ml-3 px-3 py-2 bg-popover text-popover-foreground border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none">
-                    <span className="text-sm font-medium">{item.label}</span>
-                    {/* Tooltip arrow */}
-                    <div className="absolute left-0 top-1/2 -translate-x-1.5 -translate-y-1/2 w-3 h-3 bg-popover border-l border-b border-border rotate-45" />
+                  <div
+                    className={cn(
+                      "absolute top-1/2 -translate-y-1/2 px-3 py-2 bg-popover text-popover-foreground border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none",
+                      isRTL ? "right-full mr-3" : "left-full ml-3",
+                    )}
+                  >
+                    <span className="text-sm font-medium">{t(item.label)}</span>
+                    {/* Tooltip arrow - adjusted for RTL */}
+                    <div
+                      className={cn(
+                        "absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-popover border-border rotate-45",
+                        isRTL
+                          ? "right-0 translate-x-1.5 border-r border-t"
+                          : "left-0 -translate-x-1.5 border-l border-b",
+                      )}
+                    />
                   </div>
                 )}
 
@@ -315,14 +372,26 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
               </span>
             </div>
 
-            {/* Tooltip */}
-            <div className="absolute left-full ml-3 px-3 py-2 bg-popover text-popover-foreground border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none top-1/2 -translate-y-1/2">
+            {/* Tooltip - adjusted for RTL */}
+            <div
+              className={cn(
+                "absolute top-1/2 -translate-y-1/2 px-3 py-2 bg-popover text-popover-foreground border border-border rounded-lg shadow-xl opacity-0 invisible group-hover:opacity-100 group-hover:visible transition-all duration-200 whitespace-nowrap z-50 pointer-events-none",
+                isRTL ? "right-full mr-3" : "left-full ml-3",
+              )}
+            >
               <p className="text-sm font-semibold">{user.username}</p>
               <p className="text-xs text-muted-foreground capitalize">
                 {user.role.replace("_", " ")}
               </p>
-              {/* Tooltip arrow */}
-              <div className="absolute left-0 top-1/2 -translate-x-1.5 -translate-y-1/2 w-3 h-3 bg-popover border-l border-b border-border rotate-45" />
+              {/* Tooltip arrow - adjusted for RTL */}
+              <div
+                className={cn(
+                  "absolute top-1/2 -translate-y-1/2 w-3 h-3 bg-popover border-border rotate-45",
+                  isRTL
+                    ? "right-0 translate-x-1.5 border-r border-t"
+                    : "left-0 -translate-x-1.5 border-l border-b",
+                )}
+              />
             </div>
           </div>
         </div>
@@ -355,13 +424,23 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
           100% { background-position: 0% 50%; }
         }
 
-        @keyframes slide-in-right {
+        @keyframes slide-in-ltr {
           from { opacity: 0; transform: translateY(-50%) translateX(-10px); }
           to { opacity: 1; transform: translateY(-50%) translateX(0); }
         }
 
-        @keyframes fade-in-left {
+        @keyframes slide-in-rtl {
+          from { opacity: 0; transform: translateY(-50%) translateX(10px); }
+          to { opacity: 1; transform: translateY(-50%) translateX(0); }
+        }
+
+        @keyframes fade-in-slide-ltr {
           from { opacity: 0; transform: translateX(-20px); }
+          to { opacity: 1; transform: translateX(0); }
+        }
+
+        @keyframes fade-in-slide-rtl {
+          from { opacity: 0; transform: translateX(20px); }
           to { opacity: 1; transform: translateX(0); }
         }
 
@@ -385,8 +464,13 @@ export function Sidebar({ collapsed, onToggle }: SidebarProps) {
         .animate-pulse-glow { animation: pulse-glow 3s ease-in-out infinite; }
         .animate-shimmer { animation: shimmer 2s ease-in-out infinite; }
         .animate-gradient-flow { animation: gradient-flow 3s ease infinite; background-size: 200% 200%; }
-        .animate-slide-in-right { animation: slide-in-right 0.4s ease-out; }
-        .animate-fade-in-left { animation: fade-in-left 0.5s ease-out forwards; opacity: 0; }
+        
+        [dir="ltr"] .animate-slide-in { animation: slide-in-ltr 0.4s ease-out; }
+        [dir="rtl"] .animate-slide-in { animation: slide-in-rtl 0.4s ease-out; }
+        
+        [dir="ltr"] .animate-fade-in-slide { animation: fade-in-slide-ltr 0.5s ease-out forwards; opacity: 0; }
+        [dir="rtl"] .animate-fade-in-slide { animation: fade-in-slide-rtl 0.5s ease-out forwards; opacity: 0; }
+        
         .animate-fade-in-up { animation: fade-in-up 0.5s ease-out; }
         .animate-fade-in { animation: fade-in 0.3s ease-out; }
         .animate-particle-float { animation: particle-float ease-in-out infinite; }

@@ -1,4 +1,5 @@
 import type { Client, ClientType, ClientStatus } from '@/types';
+import i18n from '@/i18n';
 
 const mockClients: Client[] = [
   { id: 'c-1', fullName: 'Alice Johnson', email: 'alice@email.com', phone: '+1234567890', address: '100 First St', type: 'static_ip', status: 'active', posId: 'pos-1', posName: 'Downtown Branch', staticIp: '192.168.1.10', planName: 'Business Pro', monthlyRate: 150, balance: 0, createdAt: '2024-01-20' },
@@ -59,7 +60,7 @@ export const clientsApi = {
   update: async (id: string, data: Partial<Client>): Promise<Client> => {
     await new Promise((resolve) => setTimeout(resolve, 800));
     const index = mockClients.findIndex(c => c.id === id);
-    if (index === -1) throw new Error('Client not found');
+    if (index === -1) throw new Error(i18n.t('Client not found'));
     mockClients[index] = { ...mockClients[index], ...data };
     return mockClients[index];
   },
@@ -67,7 +68,7 @@ export const clientsApi = {
   suspend: async (id: string): Promise<Client> => {
     await new Promise((resolve) => setTimeout(resolve, 600));
     const index = mockClients.findIndex(c => c.id === id);
-    if (index === -1) throw new Error('Client not found');
+    if (index === -1) throw new Error(i18n.t('Client not found'));
     mockClients[index].status = 'suspended';
     return mockClients[index];
   },
@@ -75,7 +76,7 @@ export const clientsApi = {
   reactivate: async (id: string): Promise<Client> => {
     await new Promise((resolve) => setTimeout(resolve, 600));
     const index = mockClients.findIndex(c => c.id === id);
-    if (index === -1) throw new Error('Client not found');
+    if (index === -1) throw new Error(i18n.t('Client not found'));
     mockClients[index].status = 'active';
     return mockClients[index];
   },

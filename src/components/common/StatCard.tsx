@@ -1,5 +1,6 @@
 import { LucideIcon } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useTranslation } from 'react-i18next';
 
 interface StatCardProps {
   title: string;
@@ -11,6 +12,7 @@ interface StatCardProps {
 }
 
 export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 'default' }: StatCardProps) {
+  const { t } = useTranslation();
   const variantStyles = {
     default: 'bg-card',
     accent: 'bg-accent/10 border-accent/20',
@@ -36,7 +38,7 @@ export function StatCard({ title, value, subtitle, icon: Icon, trend, variant = 
           {subtitle && <p className="text-xs text-muted-foreground">{subtitle}</p>}
           {trend && (
             <p className={cn('text-xs font-medium', trend.isPositive ? 'text-success' : 'text-destructive')}>
-              {trend.isPositive ? '+' : ''}{trend.value}% from last month
+              {trend.isPositive ? '+' : ''}{trend.value}% {t('from last month')}
             </p>
           )}
         </div>

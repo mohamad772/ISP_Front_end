@@ -1,4 +1,5 @@
 import type { StaticIPPool, AuditLog, PPPoERequest } from '@/types';
+import i18n from '@/i18n';
 
 const mockIPPools: StaticIPPool[] = [
   { id: 'pool-1', posId: 'pos-1', posName: 'Downtown Branch', subnet: '192.168.1.0/24', totalIps: 50, availableIps: 15, assignedIps: 35 },
@@ -7,10 +8,10 @@ const mockIPPools: StaticIPPool[] = [
 ];
 
 const mockAuditLogs: AuditLog[] = [
-  { id: 'log-1', userId: '1', userName: 'System Administrator', action: 'CREATE', resource: 'client', resourceId: 'c-5', details: 'Created new client: Eva Martinez', ipAddress: '192.168.1.100', timestamp: new Date().toISOString() },
-  { id: 'log-2', userId: '2', userName: 'John Doe', action: 'UPDATE', resource: 'client', resourceId: 'c-3', details: 'Suspended client: Carol Davis', ipAddress: '192.168.1.101', timestamp: new Date(Date.now() - 3600000).toISOString() },
-  { id: 'log-3', userId: '1', userName: 'System Administrator', action: 'UPDATE', resource: 'pos', resourceId: 'pos-1', details: 'Updated bandwidth allocation', ipAddress: '192.168.1.100', timestamp: new Date(Date.now() - 7200000).toISOString() },
-  { id: 'log-4', userId: '3', userName: 'Maria Smith', action: 'CREATE', resource: 'invoice', resourceId: 'inv-2', details: 'Generated invoice for Bob Williams', ipAddress: '192.168.1.102', timestamp: new Date(Date.now() - 10800000).toISOString() },
+  { id: 'log-1', userId: '1', userName: 'System Administrator', action: 'CREATE', resource: 'client', resourceId: 'c-5', details: i18n.t('Created new client: Eva Martinez'), ipAddress: '192.168.1.100', timestamp: new Date().toISOString() },
+  { id: 'log-2', userId: '2', userName: 'John Doe', action: 'UPDATE', resource: 'client', resourceId: 'c-3', details: i18n.t('Suspended client: Carol Davis'), ipAddress: '192.168.1.101', timestamp: new Date(Date.now() - 3600000).toISOString() },
+  { id: 'log-3', userId: '1', userName: 'System Administrator', action: 'UPDATE', resource: 'pos', resourceId: 'pos-1', details: i18n.t('Updated bandwidth allocation'), ipAddress: '192.168.1.100', timestamp: new Date(Date.now() - 7200000).toISOString() },
+  { id: 'log-4', userId: '3', userName: 'Maria Smith', action: 'CREATE', resource: 'invoice', resourceId: 'inv-2', details: i18n.t('Generated invoice for Bob Williams'), ipAddress: '192.168.1.102', timestamp: new Date(Date.now() - 10800000).toISOString() },
 ];
 
 const mockPPPoERequests: PPPoERequest[] = [
@@ -52,7 +53,7 @@ export const networkApi = {
   approvePPPoERequest: async (id: string): Promise<PPPoERequest> => {
     await new Promise((resolve) => setTimeout(resolve, 600));
     const req = mockPPPoERequests.find(r => r.id === id);
-    if (!req) throw new Error('Request not found');
+    if (!req) throw new Error(i18n.t('Request not found'));
     req.status = 'approved';
     req.processedAt = new Date().toISOString();
     return req;

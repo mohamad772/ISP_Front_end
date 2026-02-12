@@ -39,6 +39,7 @@ import {
 } from "lucide-react";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { useInvoices, useCreateInvoice } from "@/hooks/useInvoices";
 import { usePayments, useCreatePayment } from "@/hooks/usepayments";
 import type { ServicePlan, Invoice, Payment } from "@/types/api.types";
@@ -64,6 +65,7 @@ const AnimatedBackground = () => {
 };
 
 export function BillingPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { data: plans = [], isLoading: plansLoading } = useServicePlans();
   const { data: invoices = [], isLoading: invoicesLoading } = useInvoices();
@@ -114,6 +116,38 @@ export function BillingPage() {
   });
 
   const isLoading = plansLoading || invoicesLoading || paymentsLoading;
+  const translateApiText = (value?: string | null) =>
+    value ? t(value, { defaultValue: value }) : value;
+  const getPaymentMethodLabel = (method: PaymentMethod | string) => {
+    if (method === PaymentMethod.CASH || method === "CASH") return t("Cash");
+    if (method === PaymentMethod.BANK_TRANSFER || method === "BANK_TRANSFER") {
+      return t("Bank Transfer");
+    }
+    if (method === PaymentMethod.CARD || method === "CARD") return t("Card");
+    if (method === PaymentMethod.ONLINE || method === "ONLINE") {
+      return t("Online");
+    }
+    return method;
+  };
+
+  const getDurationTypeLabel = (durationType: DurationType | string) => {
+    if (durationType === DurationType.HALF_MONTHLY || durationType === "HALF_MONTHLY") {
+      return t("Half Monthly");
+    }
+    if (durationType === DurationType.MONTHLY || durationType === "MONTHLY") {
+      return t("Monthly");
+    }
+    if (durationType === DurationType.QUARTERLY || durationType === "QUARTERLY") {
+      return t("Quarterly");
+    }
+    if (durationType === DurationType.HALF_ANNUAL || durationType === "HALF_ANNUAL") {
+      return t("Half Annual");
+    }
+    if (durationType === DurationType.ANNUAL || durationType === "ANNUAL") {
+      return t("Annual");
+    }
+    return durationType;
+  };
 
   const totalRevenue = payments.reduce(
     (sum, p) => sum + Number(p.amountPaid || 0) + Number(p.extraAmount || 0),
@@ -124,26 +158,26 @@ export function BillingPage() {
     .reduce((sum, i) => sum + Number(i.amount || 0), 0);
 
   const invoiceColumns = [
-    { key: "invoiceNumber", header: "Invoice #" },
+    { key: "invoiceNumber", header: t("Invoice #") },
     {
       key: "clientName",
-      header: "Client",
-      render: (i: Invoice) => i.client?.fullName || "N/A",
+      header: t("Client"),
+      render: (i: Invoice) => i.client?.fullName || t("N/A"),
     },
     {
       key: "amount",
-      header: "Amount",
+      header: t("Amount"),
       render: (i: Invoice) => `$${Number(i.amount || 0).toFixed(2)}`,
     },
     {
       key: "dueDate",
-      header: "Due Date",
+      header: t("Due Date"),
       render: (i: Invoice) =>
         i.dueDate ? new Date(i.dueDate).toLocaleDateString() : "-",
     },
     {
       key: "status",
-      header: "Status",
+      header: t("Status"),
       render: (i: Invoice) => (
         <StatusBadge status={getInvoiceStatus(i).toLowerCase()} />
       ),
@@ -151,30 +185,28 @@ export function BillingPage() {
   ];
 
   const paymentColumns = [
-    { key: "paymentReference", header: "Reference" },
+    { key: "paymentReference", header: t("Reference") },
     {
       key: "clientName",
-      header: "Client",
-      render: (p: Payment) => p.invoice?.client?.fullName || "N/A",
+      header: t("Client"),
+      render: (p: Payment) => p.invoice?.client?.fullName || t("N/A"),
     },
     {
       key: "amount",
-      header: "Amount",
+      header: t("Amount"),
       render: (p: Payment) =>
         `$${(Number(p.amountPaid) + Number(p.extraAmount || 0)).toFixed(2)}`,
     },
     {
       key: "method",
-      header: "Method",
+      header: t("Method"),
       render: (p: Payment) => (
-        <span className="capitalize">
-          {(p.paymentMethod || "CASH").toLowerCase().replace("_", " ")}
-        </span>
+        <span className="capitalize">{getPaymentMethodLabel(p.paymentMethod || "CASH")}</span>
       ),
     },
     {
       key: "date",
-      header: "Date",
+      header: t("Date"),
       render: (p: Payment) => new Date(p.paymentDate).toLocaleDateString(),
     },
   ];
@@ -247,7 +279,7 @@ export function BillingPage() {
       !invoiceForm.dueDate
     ) {
       toast({
-        title: "Client, amount, issue date, and due date are required",
+        title: t("Client, amount, issue date, and due date are required"),
         variant: "destructive",
       });
       return;
@@ -263,10 +295,10 @@ export function BillingPage() {
         dueDate: dueDateIso,
         notes: invoiceForm.notes || undefined,
       });
-      toast({ title: "Invoice created" });
+      toast({ title: t("Invoice created") });
       setIsInvoiceOpen(false);
     } catch {
-      toast({ title: "Failed to create invoice", variant: "destructive" });
+      toast({ title: t("Failed to create invoice"), variant: "destructive" });
     } finally {
       setIsSavingInvoice(false);
     }
@@ -275,12 +307,12 @@ export function BillingPage() {
   const handleCreatePayment = async () => {
     if (isSavingPayment) return;
     if (paymentForm.invoiceId === "none") {
-      toast({ title: "Select an invoice", variant: "destructive" });
+      toast({ title: t("Select an invoice"), variant: "destructive" });
       return;
     }
     const amountPaid = Number(paymentForm.amountPaid);
     if (!Number.isFinite(amountPaid) || amountPaid <= 0) {
-      toast({ title: "Amount paid must be positive", variant: "destructive" });
+      toast({ title: t("Amount paid must be positive"), variant: "destructive" });
       return;
     }
     try {
@@ -292,10 +324,10 @@ export function BillingPage() {
         paymentReference: paymentForm.paymentReference || undefined,
         notes: paymentForm.notes || undefined,
       });
-      toast({ title: "Payment recorded" });
+      toast({ title: t("Payment recorded") });
       setIsPaymentOpen(false);
     } catch {
-      toast({ title: "Failed to record payment", variant: "destructive" });
+      toast({ title: t("Failed to record payment"), variant: "destructive" });
     } finally {
       setIsSavingPayment(false);
     }
@@ -318,7 +350,7 @@ export function BillingPage() {
       !Number.isFinite(upload)
     ) {
       toast({
-        title: "Please fill required fields",
+        title: t("Please fill required fields"),
         variant: "destructive",
       });
       return;
@@ -345,7 +377,7 @@ export function BillingPage() {
             await deactivatePlanMutation.mutateAsync(selectedPlan.id);
           }
         }
-        toast({ title: "Plan updated" });
+        toast({ title: t("Plan updated") });
         setIsEditPlanOpen(false);
       } else {
         await createPlanMutation.mutateAsync({
@@ -359,11 +391,11 @@ export function BillingPage() {
           uploadSpeedMbps: upload,
           dataCapacityGb: dataGb,
         });
-        toast({ title: "Plan created" });
+        toast({ title: t("Plan created") });
         setIsPlanOpen(false);
       }
     } catch {
-      toast({ title: "Failed to save plan", variant: "destructive" });
+      toast({ title: t("Failed to save plan"), variant: "destructive" });
     } finally {
       setIsSavingPlan(false);
     }
@@ -373,13 +405,13 @@ export function BillingPage() {
     try {
       if (plan.isActive) {
         await deactivatePlanMutation.mutateAsync(plan.id);
-        toast({ title: "Plan deactivated" });
+        toast({ title: t("Plan deactivated") });
       } else {
         await activatePlanMutation.mutateAsync(plan.id);
-        toast({ title: "Plan activated" });
+        toast({ title: t("Plan activated") });
       }
     } catch {
-      toast({ title: "Failed to update plan", variant: "destructive" });
+      toast({ title: t("Failed to update plan"), variant: "destructive" });
     }
   };
 
@@ -393,27 +425,29 @@ export function BillingPage() {
         }
       `}</style>
       <PageHeader
-        title="Billing & Plans"
-        description="Manage service plans, invoices, and payments"
+        title={t("Billing & Plans")}
+        description={t("Manage service plans, invoices, and payments")}
         actions={
           <div className="flex gap-2">
             <Dialog open={isInvoiceOpen} onOpenChange={setIsInvoiceOpen}>
               <DialogTrigger asChild>
                 <Button onClick={openInvoice}>
                   <Plus className="w-4 h-4 mr-2" />
-                  Create Invoice
+                  {t("Create Invoice")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
                 <AnimatedBackground />
                 <div className="relative glass-morphism p-6 border-b border-white/10">
                   <DialogHeader>
-                    <DialogTitle className="text-xl">Create Invoice</DialogTitle>
+                    <DialogTitle className="text-xl">
+                      {t("Create Invoice")}
+                    </DialogTitle>
                   </DialogHeader>
                 </div>
                 <div className="relative p-6 space-y-4 max-h-[calc(90vh-6rem)] overflow-y-auto">
                   <div className="space-y-2">
-                    <Label>Client</Label>
+                    <Label>{t("Client")}</Label>
                     <Select
                       value={invoiceForm.clientId}
                       onValueChange={(v) =>
@@ -421,7 +455,7 @@ export function BillingPage() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select client" />
+                        <SelectValue placeholder={t("Select client")} />
                       </SelectTrigger>
                       <SelectContent>
                         {clients.map((c) => (
@@ -433,7 +467,7 @@ export function BillingPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Amount</Label>
+                    <Label>{t("Amount")}</Label>
                     <Input
                       type="number"
                       min="0"
@@ -447,7 +481,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Issue Date</Label>
+                    <Label>{t("Issue Date")}</Label>
                     <Input
                       type="date"
                       value={invoiceForm.issueDate}
@@ -460,7 +494,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Due Date</Label>
+                    <Label>{t("Due Date")}</Label>
                     <Input
                       type="date"
                       value={invoiceForm.dueDate}
@@ -473,7 +507,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Notes (optional)</Label>
+                    <Label>{t("Notes (optional)")}</Label>
                     <Input
                       value={invoiceForm.notes}
                       onChange={(e) =>
@@ -489,7 +523,7 @@ export function BillingPage() {
                     onClick={handleCreateInvoice}
                     disabled={isSavingInvoice}
                   >
-                    {isSavingInvoice ? "Creating..." : "Create Invoice"}
+                    {isSavingInvoice ? t("Creating...") : t("Create Invoice")}
                   </Button>
                 </div>
               </DialogContent>
@@ -497,7 +531,7 @@ export function BillingPage() {
             <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" onClick={openPayment}>
-                  Record Payment
+                  {t("Record Payment")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
@@ -505,13 +539,13 @@ export function BillingPage() {
                 <div className="relative glass-morphism p-6 border-b border-white/10">
                   <DialogHeader>
                     <DialogTitle className="text-xl">
-                      Record Payment
+                      {t("Record Payment")}
                     </DialogTitle>
                   </DialogHeader>
                 </div>
                 <div className="relative p-6 space-y-4 max-h-[calc(90vh-6rem)] overflow-y-auto">
                   <div className="space-y-2">
-                    <Label>Invoice</Label>
+                    <Label>{t("Invoice")}</Label>
                     <Select
                       value={paymentForm.invoiceId}
                       onValueChange={(v) =>
@@ -519,13 +553,11 @@ export function BillingPage() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue placeholder="Select invoice" />
+                        <SelectValue placeholder={t("Select Invoice")} />
                       </SelectTrigger>
                       <SelectContent>
                         {invoices
-                          .filter(
-      (i) => !isInvoicePaid(i),
-                          )
+                          .filter((i) => !isInvoicePaid(i))
                           .map((inv) => (
                             <SelectItem key={inv.id} value={inv.id}>
                               {inv.invoiceNumber} - $
@@ -536,7 +568,7 @@ export function BillingPage() {
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Amount Paid</Label>
+                    <Label>{t("Amount Paid")}</Label>
                     <Input
                       type="number"
                       min="0"
@@ -550,7 +582,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Payment Method</Label>
+                    <Label>{t("Payment Method")}</Label>
                     <Select
                       value={paymentForm.paymentMethod}
                       onValueChange={(v) =>
@@ -561,20 +593,20 @@ export function BillingPage() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={t("Select Payment Method")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="CASH">Cash</SelectItem>
+                        <SelectItem value="CASH">{t("Cash")}</SelectItem>
                         <SelectItem value="BANK_TRANSFER">
-                          Bank Transfer
+                          {t("Bank Transfer")}
                         </SelectItem>
-                        <SelectItem value="CARD">Card</SelectItem>
-                        <SelectItem value="ONLINE">Online</SelectItem>
+                        <SelectItem value="CARD">{t("Card")}</SelectItem>
+                        <SelectItem value="ONLINE">{t("Online")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Reference (optional)</Label>
+                    <Label>{t("Reference (optional)")}</Label>
                     <Input
                       value={paymentForm.paymentReference}
                       onChange={(e) =>
@@ -586,7 +618,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Notes (optional)</Label>
+                    <Label>{t("Notes (optional)")}</Label>
                     <Input
                       value={paymentForm.notes}
                       onChange={(e) =>
@@ -602,7 +634,7 @@ export function BillingPage() {
                     onClick={handleCreatePayment}
                     disabled={isSavingPayment}
                   >
-                    {isSavingPayment ? "Saving..." : "Record Payment"}
+                    {isSavingPayment ? t("Saving...") : t("Record Payment")}
                   </Button>
                 </div>
               </DialogContent>
@@ -610,19 +642,21 @@ export function BillingPage() {
             <Dialog open={isPlanOpen} onOpenChange={setIsPlanOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" onClick={openCreatePlan}>
-                  Add Plan
+                  {t("Add Plan")}
                 </Button>
               </DialogTrigger>
               <DialogContent className="fixed left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] p-0 overflow-hidden border-2 border-primary/20">
                 <AnimatedBackground />
                 <div className="relative glass-morphism p-6 border-b border-white/10">
                   <DialogHeader>
-                    <DialogTitle className="text-xl">Create Plan</DialogTitle>
+                    <DialogTitle className="text-xl">
+                      {t("Create Plan")}
+                    </DialogTitle>
                   </DialogHeader>
                 </div>
                 <div className="relative p-6 space-y-4 max-h-[calc(90vh-6rem)] overflow-y-auto">
                   <div className="space-y-2">
-                    <Label>Plan Name</Label>
+                    <Label>{t("Plan Name")}</Label>
                     <Input
                       value={planForm.planName}
                       onChange={(e) =>
@@ -631,7 +665,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Description</Label>
+                    <Label>{t("Description")}</Label>
                     <Input
                       value={planForm.description}
                       onChange={(e) =>
@@ -643,7 +677,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Service Type</Label>
+                    <Label>{t("Service Type")}</Label>
                     <Select
                       value={planForm.serviceType}
                       onValueChange={(v) =>
@@ -654,16 +688,18 @@ export function BillingPage() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={t("Select Service Type")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="PREPAID">Prepaid</SelectItem>
-                        <SelectItem value="POSTPAID">Postpaid</SelectItem>
+                        <SelectItem value="PREPAID">{t("Prepaid")}</SelectItem>
+                        <SelectItem value="POSTPAID">
+                          {t("Postpaid")}
+                        </SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Duration Type</Label>
+                    <Label>{t("Duration Type")}</Label>
                     <Select
                       value={planForm.durationType}
                       onValueChange={(v) =>
@@ -674,21 +710,25 @@ export function BillingPage() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={t("Select Duration Type")} />
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="HALF_MONTHLY">
-                          Half Monthly
+                          {t("Half Monthly")}
                         </SelectItem>
-                        <SelectItem value="MONTHLY">Monthly</SelectItem>
-                        <SelectItem value="QUARTERLY">Quarterly</SelectItem>
-                        <SelectItem value="HALF_ANNUAL">Half Annual</SelectItem>
-                        <SelectItem value="ANNUAL">Annual</SelectItem>
+                        <SelectItem value="MONTHLY">{t("Monthly")}</SelectItem>
+                        <SelectItem value="QUARTERLY">
+                          {t("Quarterly")}
+                        </SelectItem>
+                        <SelectItem value="HALF_ANNUAL">
+                          {t("Half Annual")}
+                        </SelectItem>
+                        <SelectItem value="ANNUAL">{t("Annual")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="space-y-2">
-                    <Label>Duration Days</Label>
+                    <Label>{t("Duration Days")}</Label>
                     <Input
                       type="number"
                       min="1"
@@ -702,7 +742,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Cost</Label>
+                    <Label>{t("Cost")}</Label>
                     <Input
                       type="number"
                       min="0"
@@ -713,7 +753,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Download Speed (Mbps)</Label>
+                    <Label>{t("Download Speed (Mbps)")}</Label>
                     <Input
                       type="number"
                       min="0"
@@ -727,7 +767,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Upload Speed (Mbps)</Label>
+                    <Label>{t("Upload Speed (Mbps)")}</Label>
                     <Input
                       type="number"
                       min="0"
@@ -741,7 +781,7 @@ export function BillingPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Data Capacity (GB)</Label>
+                    <Label>{t("Data Capacity (GB)")}</Label>
                     <Input
                       type="number"
                       min="0"
@@ -759,7 +799,7 @@ export function BillingPage() {
                     onClick={() => handleSavePlan(false)}
                     disabled={isSavingPlan}
                   >
-                    {isSavingPlan ? "Saving..." : "Create Plan"}
+                    {isSavingPlan ? t("Saving...") : t("Create Plan")}
                   </Button>
                 </div>
               </DialogContent>
@@ -770,24 +810,24 @@ export function BillingPage() {
 
       <div className="grid gap-4 md:grid-cols-4">
         <StatCard
-          title="Monthly Revenue"
+          title={t("Monthly Revenue")}
           value={`$${totalRevenue.toLocaleString()}`}
           icon={DollarSign}
           variant="success"
         />
         <StatCard
-          title="Unpaid Amount"
+          title={t("Unpaid Amount")}
           value={`$${unpaidAmount.toLocaleString()}`}
           icon={FileText}
           variant="warning"
         />
         <StatCard
-          title="Total Invoices"
+          title={t("Total Invoices")}
           value={invoices.length}
           icon={CreditCard}
         />
         <StatCard
-          title="Active Plans"
+          title={t("Active Plans")}
           value={plans.filter((p) => p.isActive).length}
           icon={Package}
           variant="accent"
@@ -796,9 +836,9 @@ export function BillingPage() {
 
       <Tabs defaultValue="plans" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="plans">Service Plans</TabsTrigger>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="payments">Payments</TabsTrigger>
+          <TabsTrigger value="plans">{t("Service Plans")}</TabsTrigger>
+          <TabsTrigger value="invoices">{t("Invoices")}</TabsTrigger>
+          <TabsTrigger value="payments">{t("Payments")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="plans">
@@ -810,12 +850,16 @@ export function BillingPage() {
               >
                 <CardHeader>
                   <div className="flex items-center justify-between">
-                    <CardTitle className="text-lg">{plan.planName}</CardTitle>
+                    <CardTitle className="text-lg">
+                      {translateApiText(plan.planName)}
+                    </CardTitle>
                     {!plan.isActive && (
-                      <Badge variant="secondary">Inactive</Badge>
+                      <Badge variant="secondary">{t("Inactive")}</Badge>
                     )}
                   </div>
-                  <CardDescription>{plan.description}</CardDescription>
+                  <CardDescription>
+                    {translateApiText(plan.description)}
+                  </CardDescription>
                 </CardHeader>
                 <CardContent>
                   <div className="flex items-baseline gap-1 mb-4">
@@ -823,7 +867,7 @@ export function BillingPage() {
                       ${Number(plan.cost).toFixed(2)}
                     </span>
                     <span className="text-muted-foreground">
-                      /{plan.durationType.toLowerCase().replace("_", " ")}
+                      /{getDurationTypeLabel(plan.durationType)}
                     </span>
                   </div>
                   <div className="flex items-center gap-2 mb-4 text-accent">
@@ -836,21 +880,21 @@ export function BillingPage() {
                   <ul className="space-y-2 text-sm">
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                      {plan.downloadSpeedMbps} Mbps Download
+                      {plan.downloadSpeedMbps} {t("Mbps Download")}
                     </li>
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                      {plan.uploadSpeedMbps} Mbps Upload
+                      {plan.uploadSpeedMbps} {t("Mbps Upload")}
                     </li>
                     {plan.dataCapacityGb && (
                       <li className="flex items-center gap-2">
                         <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                        {plan.dataCapacityGb} GB Data
+                        {plan.dataCapacityGb} {t("GB Data")}
                       </li>
                     )}
                     <li className="flex items-center gap-2">
                       <span className="w-1.5 h-1.5 rounded-full bg-accent" />
-                      {plan.serviceType === "POSTPAID" ? "Postpaid" : "Prepaid"}
+                      {plan.serviceType === "POSTPAID" ? t("Postpaid") : t("Prepaid")}
                     </li>
                   </ul>
                   <div className="grid gap-2 mt-4">
@@ -859,7 +903,7 @@ export function BillingPage() {
                       className="w-full"
                       onClick={() => openEditPlan(plan)}
                     >
-                      Edit Plan
+                      {t("Edit Plan")}
                     </Button>
                     <Button
                       variant={plan.isActive ? "destructive" : "secondary"}
@@ -870,7 +914,7 @@ export function BillingPage() {
                         deactivatePlanMutation.isPending
                       }
                     >
-                      {plan.isActive ? "Deactivate" : "Activate"}
+                      {plan.isActive ? t("Deactivate") : t("Activate")}
                     </Button>
                   </div>
                 </CardContent>
@@ -886,7 +930,7 @@ export function BillingPage() {
                 columns={invoiceColumns}
                 data={invoices}
                 isLoading={isLoading}
-                emptyMessage="No invoices"
+                emptyMessage={t("No invoices")}
               />
             </CardContent>
           </Card>
@@ -899,7 +943,7 @@ export function BillingPage() {
                 columns={paymentColumns}
                 data={payments}
                 isLoading={isLoading}
-                emptyMessage="No payments"
+                emptyMessage={t("No payments")}
               />
             </CardContent>
           </Card>
@@ -911,12 +955,12 @@ export function BillingPage() {
           <AnimatedBackground />
           <div className="relative glass-morphism p-6 border-b border-white/10">
             <DialogHeader>
-              <DialogTitle className="text-xl">Edit Plan</DialogTitle>
+              <DialogTitle className="text-xl">{t("Edit Plan")}</DialogTitle>
             </DialogHeader>
           </div>
           <div className="relative p-6 space-y-4 max-h-[calc(90vh-6rem)] overflow-y-auto">
             <div className="space-y-2">
-              <Label>Plan Name</Label>
+              <Label>{t("Plan Name")}</Label>
               <Input
                 value={planForm.planName}
                 onChange={(e) =>
@@ -925,7 +969,7 @@ export function BillingPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Description</Label>
+              <Label>{t("Description")}</Label>
               <Input
                 value={planForm.description}
                 onChange={(e) =>
@@ -934,7 +978,7 @@ export function BillingPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Cost</Label>
+              <Label>{t("Cost")}</Label>
               <Input
                 type="number"
                 min="0"
@@ -945,7 +989,7 @@ export function BillingPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Download Speed (Mbps)</Label>
+              <Label>{t("Download Speed (Mbps)")}</Label>
               <Input
                 type="number"
                 min="0"
@@ -959,7 +1003,7 @@ export function BillingPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Upload Speed (Mbps)</Label>
+              <Label>{t("Upload Speed (Mbps)")}</Label>
               <Input
                 type="number"
                 min="0"
@@ -973,7 +1017,7 @@ export function BillingPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Data Capacity (GB)</Label>
+              <Label>{t("Data Capacity (GB)")}</Label>
               <Input
                 type="number"
                 min="0"
@@ -987,7 +1031,7 @@ export function BillingPage() {
               />
             </div>
             <div className="space-y-2">
-              <Label>Status</Label>
+              <Label>{t("Status")}</Label>
               <Select
                 value={planForm.isActive ? "active" : "inactive"}
                 onValueChange={(v) =>
@@ -995,11 +1039,11 @@ export function BillingPage() {
                 }
               >
                 <SelectTrigger>
-                  <SelectValue />
+                  <SelectValue placeholder={t("Select Status")} />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="active">{t("Active")}</SelectItem>
+                  <SelectItem value="inactive">{t("Inactive")}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -1008,7 +1052,7 @@ export function BillingPage() {
               onClick={() => handleSavePlan(true)}
               disabled={isSavingPlan}
             >
-              {isSavingPlan ? "Saving..." : "Save Changes"}
+              {isSavingPlan ? t("Saving...") : t("Save Changes")}
             </Button>
           </div>
         </DialogContent>

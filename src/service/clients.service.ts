@@ -8,13 +8,26 @@ import {
   AssignStaticIPRequest,
   PaginatedClients,
   ClientFilters,
+  UserRole,
 } from "@/types/api.types";
+import { useStore } from "@/store/auth-store";
 
 /**
  * Create a new client
  */
 export async function createClient(data: CreateClientRequest): Promise<Client> {
-  const response = await apiClient.post("/clients", data);
+  const currentUser = useStore.getState().user;
+  const isPosManager = currentUser?.role === UserRole.POS_MANAGER;
+  const effectivePosId = isPosManager ? currentUser?.posId : data.posId;
+
+  if (!effectivePosId) {
+    throw new Error("POS ID is required to create a client.");
+  }
+
+  const response = await apiClient.post("/clients", {
+    ...data,
+    posId: effectivePosId,
+  });
   return response.data;
 }
 

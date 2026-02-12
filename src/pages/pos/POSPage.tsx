@@ -28,9 +28,12 @@ import {
   Zap,
 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { isValidPhone10, normalizePhone10 } from "@/utils/phone";
+import { useTranslation } from "react-i18next";
 import { useCreatePOS, usePOSList } from "@/hooks/usePos";
 
 export function POSPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const [search, setSearch] = useState("");
@@ -53,11 +56,21 @@ export function POSPage() {
     }
     const allocated = Number(newPOS.allocatedBandwidthMbps);
     if (!newPOS.name.trim() || !newPOS.location.trim() || !newPOS.contactPhone.trim()) {
-      toast({ title: "All fields are required", variant: "destructive" });
+      toast({ title: t("All fields are required"), variant: "destructive" });
+      return;
+    }
+    if (!isValidPhone10(newPOS.contactPhone)) {
+      toast({
+        title: "Contact phone must be 10 digits",
+        variant: "destructive",
+      });
       return;
     }
     if (!Number.isFinite(allocated) || allocated <= 0) {
-      toast({ title: "Allocated bandwidth must be a positive number", variant: "destructive" });
+      toast({
+        title: t("Allocated bandwidth must be a positive number"),
+        variant: "destructive",
+      });
       return;
     }
     try {
@@ -68,7 +81,7 @@ export function POSPage() {
         contactPhone: newPOS.contactPhone.trim(),
         allocatedBandwidthMbps: allocated,
       });
-      toast({ title: "POS created successfully" });
+      toast({ title: t("POS created successfully") });
       setIsDialogOpen(false);
       setNewPOS({
         name: "",
@@ -82,7 +95,7 @@ export function POSPage() {
           ?.response?.data?.message;
       const message = Array.isArray(rawMessage)
         ? rawMessage.join(", ")
-        : rawMessage || "Failed to create POS";
+        : rawMessage || t("Failed to create POS");
       toast({ title: message, variant: "destructive" });
     } finally {
       setIsCreating(false);
@@ -108,7 +121,7 @@ export function POSPage() {
   const columns = [
     {
       key: "name",
-      header: "POS Name",
+      header: t("POS Name"),
       render: (pos: POS) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-lg bg-accent/10 flex items-center justify-center">
@@ -123,11 +136,11 @@ export function POSPage() {
     },
     {
       key: "contactPhone",
-      header: "Contact",
+      header: t("Contact"),
     },
     {
       key: "bandwidth",
-      header: "Bandwidth Usage",
+      header: t("Bandwidth Usage"),
       render: (pos: POS) => {
         const allocated = Number(pos.allocatedBandwidthMbps) || 0;
         const used = Number(pos.usedBandwidthMbps) || 0;
@@ -146,12 +159,12 @@ export function POSPage() {
     },
     {
       key: "allocated",
-      header: "Allocated",
+      header: t("Allocated"),
       render: (pos: POS) => `${pos.allocatedBandwidthMbps} Mbps`,
     },
     {
       key: "status",
-      header: "Status",
+      header: t("Status"),
       render: (pos: POS) => (
         <StatusBadge status={pos.isActive ? "active" : "inactive"} />
       ),
@@ -234,15 +247,15 @@ export function POSPage() {
       `}</style>
 
       <PageHeader
-        title="POS Management"
-        description="Manage Points of Sale and their resources"
+        title={t("POS Management")}
+        description={t("Manage Points of Sale and their resources")}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="group relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/50 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <Plus className="w-4 h-4 mr-2" />
-                <span className="relative z-10">Add POS</span>
+                <span className="relative z-10">{t("Add POS")}</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden border-2 border-primary/20">
@@ -277,11 +290,13 @@ export function POSPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                      Create New POS
+                      {t("Create New POS")}
                     </DialogTitle>
                     <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                       <Zap className="w-3 h-3" />
-                      Add a new point of sale with contact and bandwidth details
+                      {t(
+                        "Add a new point of sale with contact and bandwidth details",
+                      )}
                     </p>
                   </div>
                 </div>
@@ -293,7 +308,7 @@ export function POSPage() {
                   <div className="space-y-2">
                     <Label className="text-sm sm:text-base flex items-center gap-2">
                       <Building2 className="w-4 h-4 text-primary" />
-                      POS Name
+                      {t("POS Name")}
                     </Label>
                     <Input
                       value={newPOS.name}
@@ -301,13 +316,13 @@ export function POSPage() {
                         setNewPOS({ ...newPOS, name: e.target.value })
                       }
                       className="text-sm sm:text-base"
-                      placeholder="Enter POS name"
+                      placeholder={t("Enter POS name")}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm sm:text-base flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-primary" />
-                      Location
+                      {t("Location")}
                     </Label>
                     <Input
                       value={newPOS.location}
@@ -315,27 +330,32 @@ export function POSPage() {
                         setNewPOS({ ...newPOS, location: e.target.value })
                       }
                       className="text-sm sm:text-base"
-                      placeholder="Enter location"
+                      placeholder={t("Enter location")}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm sm:text-base flex items-center gap-2">
                       <Phone className="w-4 h-4 text-primary" />
-                      Contact Phone
+                      {t("Contact Phone")}
                     </Label>
-                    <Input
-                      value={newPOS.contactPhone}
-                      onChange={(e) =>
-                        setNewPOS({ ...newPOS, contactPhone: e.target.value })
-                      }
-                      className="text-sm sm:text-base"
-                      placeholder="Enter contact phone"
-                    />
+                      <Input
+                        value={newPOS.contactPhone}
+                        onChange={(e) =>
+                        setNewPOS({
+                          ...newPOS,
+                          contactPhone: normalizePhone10(e.target.value),
+                        })
+                        }
+                        className="text-sm sm:text-base"
+                        placeholder={t("Enter contact phone")}
+                        inputMode="numeric"
+                        maxLength={10}
+                      />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm sm:text-base flex items-center gap-2">
                       <Gauge className="w-4 h-4 text-primary" />
-                      Allocated Bandwidth (Mbps)
+                      {t("Allocated Bandwidth (Mbps)")}
                     </Label>
                     <Input
                       type="number"
@@ -348,7 +368,7 @@ export function POSPage() {
                         })
                       }
                       className="text-sm sm:text-base"
-                      placeholder="e.g. 200"
+                      placeholder={t("e.g. 200")}
                     />
                   </div>
                 </div>
@@ -365,12 +385,14 @@ export function POSPage() {
                   {isCreating ? (
                     <>
                       <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin mr-2 relative z-10" />
-                      <span className="relative z-10">Creating POS...</span>
+                      <span className="relative z-10">
+                        {t("Creating POS...")}
+                      </span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-5 h-5 mr-2 relative z-10" />
-                      <span className="relative z-10">Create POS</span>
+                      <span className="relative z-10">{t("Create POS")}</span>
                       <Sparkles className="w-4 h-4 ml-2 relative z-10 group-hover:rotate-12 transition-transform" />
                     </>
                   )}
@@ -385,7 +407,7 @@ export function POSPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search POS..."
+            placeholder={t("Search POS...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -393,12 +415,12 @@ export function POSPage() {
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="All Status" />
+            <SelectValue placeholder={t("All Status")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Status</SelectItem>
-            <SelectItem value="active">Active</SelectItem>
-            <SelectItem value="inactive">Inactive</SelectItem>
+            <SelectItem value="all">{t("All Status")}</SelectItem>
+            <SelectItem value="active">{t("Active")}</SelectItem>
+            <SelectItem value="inactive">{t("Inactive")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -407,7 +429,7 @@ export function POSPage() {
         columns={columns}
         data={filteredPOSList}
         isLoading={isLoading}
-        emptyMessage="No POS found"
+        emptyMessage={t("No POS found")}
         onRowClick={(pos) => navigate(`/pos/${pos.id}`)}
       />
     </div>

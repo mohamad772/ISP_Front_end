@@ -29,12 +29,16 @@ import {
 } from "lucide-react";
 import { StatCard } from "@/components/common/StatCard";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { usePOSList } from "@/hooks/usePos";
 import { useCreateStaticIP } from "@/hooks/useStaticIp";
 import { useStaticIPPools } from "@/hooks/useStaticIPPools";
 import type { CreateStaticIPRequest, StaticIPPool } from "@/types/api.types";
 
+type StaticIPBatchForm = Omit<CreateStaticIPRequest, "ipAddress">;
+
 export function NetworkPage() {
+  const { t } = useTranslation();
   const { toast } = useToast();
   const { data: ipPoolsByPOS = [], isLoading: poolsLoading } =
     useStaticIPPools();
@@ -42,7 +46,7 @@ export function NetworkPage() {
   const createStaticIPMutation = useCreateStaticIP();
   const [isCreateOpen, setIsCreateOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [newStaticIP, setNewStaticIP] = useState<CreateStaticIPRequest>({
+  const [newStaticIP, setNewStaticIP] = useState<StaticIPBatchForm>({
     posId: "",
     subnetMask: "",
     gateway: "",
@@ -75,8 +79,8 @@ export function NetworkPage() {
       !newStaticIP.subnetMask.trim() ||
       !newStaticIP.gateway.trim()
     ) {
-      toast({
-        title: "POS, IP range, subnet mask, and gateway are required",
+        toast({
+        title: t("POS, IP range, subnet mask, and gateway are required"),
         variant: "destructive",
       });
       return;
@@ -85,7 +89,7 @@ export function NetworkPage() {
     const endParts = parseIPv4(ipRange.end);
     if (!startParts || !endParts) {
       toast({
-        title: "Enter valid IPv4 addresses",
+        title: t("Enter valid IPv4 addresses"),
         variant: "destructive",
       });
       return;
@@ -96,14 +100,14 @@ export function NetworkPage() {
       startParts[2] === endParts[2];
     if (!samePrefix) {
       toast({
-        title: "Start and end IP must be in the same /24 range",
+        title: t("Start and end IP must be in the same /24 range"),
         variant: "destructive",
       });
       return;
     }
     if (endParts[3] < startParts[3]) {
       toast({
-        title: "End IP must be greater than or equal to start IP",
+        title: t("End IP must be greater than or equal to start IP"),
         variant: "destructive",
       });
       return;
@@ -111,7 +115,7 @@ export function NetworkPage() {
     const count = endParts[3] - startParts[3] + 1;
     if (count > 512) {
       toast({
-        title: "IP range is too large (max 512)",
+        title: t("IP range is too large (max 512)"),
         variant: "destructive",
       });
       return;
@@ -129,7 +133,7 @@ export function NetworkPage() {
           dnsSecondary: newStaticIP.dnsSecondary?.trim() || undefined,
         });
       }
-      toast({ title: `Created ${count} static IPs` });
+      toast({ title: t("Created {{count}} static IPs", { count }) });
       setIsCreateOpen(false);
       setNewStaticIP({
         posId: "",
@@ -145,7 +149,7 @@ export function NetworkPage() {
           ?.response?.data?.message;
       const message = Array.isArray(rawMessage)
         ? rawMessage.join(", ")
-        : rawMessage || "Failed to create static IP";
+        : rawMessage || t("Failed to create static IP");
       toast({ title: message, variant: "destructive" });
     } finally {
       setIsCreating(false);
@@ -168,7 +172,7 @@ export function NetworkPage() {
   const poolColumns = [
     {
       key: "posName",
-      header: "POS",
+      header: t("POS"),
       render: (pool: StaticIPPool) => (
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-violet-100 to-fuchsia-100 dark:from-violet-500/20 dark:to-fuchsia-500/20 flex items-center justify-center border border-violet-200 dark:border-violet-500/20 shadow-sm">
@@ -182,7 +186,7 @@ export function NetworkPage() {
     },
     {
       key: "subnet",
-      header: "Subnet",
+      header: t("Subnet"),
       render: (pool: StaticIPPool) => (
         <div className="relative group">
           <code className="bg-gradient-to-r from-slate-100 to-slate-50 dark:from-slate-900/50 dark:to-slate-800/50 backdrop-blur-sm px-3 py-1.5 rounded-lg text-sm font-mono border border-slate-200 dark:border-slate-700/50 inline-flex items-center gap-2 transition-all duration-300 group-hover:border-violet-300 dark:group-hover:border-violet-500/50 group-hover:shadow-md dark:group-hover:shadow-lg group-hover:shadow-violet-200/50 dark:group-hover:shadow-violet-500/10 text-slate-900 dark:text-slate-100">
@@ -194,7 +198,7 @@ export function NetworkPage() {
     },
     {
       key: "totalIps",
-      header: "Total IPs",
+      header: t("Total IPs"),
       render: (pool: StaticIPPool) => (
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-500/10 flex items-center justify-center shadow-sm">
@@ -208,7 +212,7 @@ export function NetworkPage() {
     },
     {
       key: "usage",
-      header: "Usage",
+      header: t("Usage"),
       render: (pool: StaticIPPool) => {
         const usage =
           pool.totalIps > 0
@@ -255,7 +259,7 @@ export function NetworkPage() {
     },
     {
       key: "availableIps",
-      header: "Available",
+      header: t("Available"),
       render: (pool: StaticIPPool) => (
         <div className="flex items-center gap-2">
           <div className="w-8 h-8 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center shadow-sm">
@@ -279,20 +283,20 @@ export function NetworkPage() {
       </div>
 
       <PageHeader
-        title="Network Resources"
-        description="Manage bandwidth pool and static IP allocations"
+        title={t("Network Resources")}
+        description={t("Manage bandwidth pool and static IP allocations")}
         actions={
           <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
             <DialogTrigger asChild>
-              <Button>Add Static IP</Button>
+              <Button>{t("Add Static IP")}</Button>
             </DialogTrigger>
             <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-lg max-h-[90vh] overflow-y-auto">
               <DialogHeader>
-                <DialogTitle>Add Static IP</DialogTitle>
+                <DialogTitle>{t("Add Static IP")}</DialogTitle>
               </DialogHeader>
               <div className="space-y-4 py-2">
                 <div className="space-y-2">
-                  <Label>POS</Label>
+                  <Label>{t("POS")}</Label>
                   <Select
                     value={newStaticIP.posId}
                     onValueChange={(value) =>
@@ -300,12 +304,12 @@ export function NetworkPage() {
                     }
                   >
                     <SelectTrigger>
-                      <SelectValue placeholder="Select POS" />
+                      <SelectValue placeholder={t("Select POS")} />
                     </SelectTrigger>
                     <SelectContent>
                       {posList.length === 0 && (
                         <SelectItem value="none" disabled>
-                          No POS available
+                          {t("No POS available")}
                         </SelectItem>
                       )}
                       {posList.map((pos) => (
@@ -318,28 +322,28 @@ export function NetworkPage() {
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Start IP</Label>
+                    <Label>{t("Start IP")}</Label>
                     <Input
                       value={ipRange.start}
                       onChange={(e) =>
                         setIpRange({ ...ipRange, start: e.target.value })
                       }
-                      placeholder="e.g. 180.150.1.2"
+                      placeholder={t("e.g. 180.150.1.2")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>End IP</Label>
+                    <Label>{t("End IP")}</Label>
                     <Input
                       value={ipRange.end}
                       onChange={(e) =>
                         setIpRange({ ...ipRange, end: e.target.value })
                       }
-                      placeholder="e.g. 180.150.1.100"
+                      placeholder={t("e.g. 180.150.1.100")}
                     />
                   </div>
                 </div>
                 <div className="space-y-2">
-                  <Label>Subnet Mask</Label>
+                  <Label>{t("Subnet Mask")}</Label>
                   <Input
                     value={newStaticIP.subnetMask}
                     onChange={(e) =>
@@ -348,11 +352,11 @@ export function NetworkPage() {
                         subnetMask: e.target.value,
                       })
                     }
-                    placeholder="e.g. 255.255.255.0"
+                    placeholder={t("e.g. 255.255.255.0")}
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label>Gateway</Label>
+                  <Label>{t("Gateway")}</Label>
                   <Input
                     value={newStaticIP.gateway}
                     onChange={(e) =>
@@ -361,12 +365,12 @@ export function NetworkPage() {
                         gateway: e.target.value,
                       })
                     }
-                    placeholder="e.g. 192.168.1.1"
+                    placeholder={t("e.g. 192.168.1.1")}
                   />
                 </div>
                 <div className="grid gap-4 sm:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Primary DNS (optional)</Label>
+                    <Label>{t("Primary DNS (optional)")}</Label>
                     <Input
                       value={newStaticIP.dnsPrimary || ""}
                       onChange={(e) =>
@@ -375,11 +379,11 @@ export function NetworkPage() {
                           dnsPrimary: e.target.value,
                         })
                       }
-                      placeholder="e.g. 8.8.8.8"
+                      placeholder={t("e.g. 8.8.8.8")}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Secondary DNS (optional)</Label>
+                    <Label>{t("Secondary DNS (optional)")}</Label>
                     <Input
                       value={newStaticIP.dnsSecondary || ""}
                       onChange={(e) =>
@@ -388,7 +392,7 @@ export function NetworkPage() {
                           dnsSecondary: e.target.value,
                         })
                       }
-                      placeholder="e.g. 8.8.4.4"
+                      placeholder={t("e.g. 8.8.4.4")}
                     />
                   </div>
                 </div>
@@ -397,7 +401,7 @@ export function NetworkPage() {
                   onClick={handleCreateStaticIP}
                   disabled={isCreating}
                 >
-                  {isCreating ? "Creating..." : "Create Static IP"}
+                  {isCreating ? t("Creating...") : t("Create Static IP")}
                 </Button>
               </div>
             </DialogContent>
@@ -408,30 +412,30 @@ export function NetworkPage() {
       {/* Stats Grid */}
       <div className="grid gap-6 md:grid-cols-4">
         <StatCard
-          title="Total IPs"
+          title={t("Total IPs")}
           value={isLoading ? "--" : totals.total.toLocaleString()}
-          subtitle="IPs"
+          subtitle={t("IPs")}
           icon={Wifi}
           variant="accent"
         />
         <StatCard
-          title="Allocated"
+          title={t("Allocated")}
           value={isLoading ? "--" : totals.assigned.toLocaleString()}
-          subtitle="IPs"
+          subtitle={t("IPs")}
           icon={Server}
           variant="default"
         />
         <StatCard
-          title="Available"
+          title={t("Available")}
           value={isLoading ? "--" : totals.available.toLocaleString()}
-          subtitle="IPs"
+          subtitle={t("IPs")}
           icon={HardDrive}
           variant="success"
         />
         <StatCard
-          title="Utilization"
+          title={t("Utilization")}
           value={isLoading ? "--" : `${utilization}%`}
-          subtitle="Of total IPs"
+          subtitle={t("Of total IPs")}
           icon={Activity}
           variant="warning"
         />
@@ -448,16 +452,16 @@ export function NetworkPage() {
               </div>
               <div>
                 <CardTitle className="text-xl bg-gradient-to-r from-slate-800 to-slate-600 dark:from-slate-100 dark:to-slate-300 bg-clip-text text-transparent">
-                  Static IP Pools by POS
+                  {t("Static IP Pools by POS")}
                 </CardTitle>
                 <p className="text-sm text-slate-600 dark:text-slate-400 mt-1">
-                  Manage and monitor IP address allocations
+                  {t("Manage and monitor IP address allocations")}
                 </p>
               </div>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <div className="px-3 py-1.5 rounded-lg bg-emerald-50 dark:bg-emerald-500/10 border border-emerald-200 dark:border-emerald-500/20 text-emerald-700 dark:text-emerald-400 font-medium shadow-sm">
-                {ipPoolsByPOS.length} Pools Active
+                {t("{{count}} Pools Active", { count: ipPoolsByPOS.length })}
               </div>
             </div>
           </div>
@@ -468,7 +472,7 @@ export function NetworkPage() {
               columns={poolColumns}
               data={ipPoolsByPOS}
               isLoading={isLoading}
-              emptyMessage="No IP pools configured"
+                emptyMessage={t("No IP pools configured")}
             />
           </div>
         </CardContent>

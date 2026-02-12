@@ -1,4 +1,5 @@
 import type { User } from '@/types';
+import i18n from '@/i18n';
 
 // Mock auth API - replace with real API calls
 export const authApi = {
@@ -42,7 +43,7 @@ export const authApi = {
       };
     }
 
-    throw new Error('Invalid credentials');
+    throw new Error(i18n.t('Invalid credentials'));
   },
 
   logout: async (): Promise<void> => {
@@ -52,7 +53,7 @@ export const authApi = {
   changePassword: async (currentPassword: string, newPassword: string): Promise<void> => {
     await new Promise((resolve) => setTimeout(resolve, 1000));
     if (currentPassword !== 'password') {
-      throw new Error('Current password is incorrect');
+      throw new Error(i18n.t('Current password is incorrect'));
     }
   },
 
@@ -63,6 +64,6 @@ export const authApi = {
       const { state } = JSON.parse(stored);
       return state.user;
     }
-    throw new Error('Not authenticated');
+    throw new Error(i18n.t('Not authenticated'));
   },
 };

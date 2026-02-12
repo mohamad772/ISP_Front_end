@@ -23,6 +23,7 @@ type JwtPayload = {
   role?: User["role"] | string;
   capabilities?: string[];
   posId?: string | null;
+  clientId?: string | null;
   email?: string;
 };
 
@@ -86,6 +87,7 @@ function buildUserFromToken(token: string): User | null {
     createdAt: now,
     updatedAt: now,
     posId: payload.posId ?? undefined,
+    clientId: payload.clientId ?? undefined,
     capabilities: payload.capabilities ?? [],
   };
 }
@@ -123,6 +125,12 @@ function normalizeLoginResponse(raw: RawLoginResponse): LoginResponse {
     if ((!user.capabilities || user.capabilities.length === 0) && permissions) {
       user = { ...user, capabilities: permissions };
     }
+    if (
+      user.role === UserRole.POS_MANAGER &&
+      (!user.capabilities || user.capabilities.length === 0)
+    ) {
+      user = { ...user, capabilities: getPosManagerCapabilities() };
+    }
     const role = normalizeRole(user.role);
     if (!role && access_token) {
       const tokenUser = buildUserFromToken(access_token);
@@ -144,12 +152,45 @@ function normalizeLoginResponse(raw: RawLoginResponse): LoginResponse {
     UserRole.WSP_ADMIN,
     UserRole.SUB_ADMIN,
     UserRole.POS_MANAGER,
+    UserRole.CLIENT,
   ];
   if (!allowedRoles.includes(user.role)) {  
     throw new Error("Role is not allowed to sign in");
   }
 
   return { access_token, user };
+}
+
+function getPosManagerCapabilities(): string[] {
+  return [
+    "CLIENTS_CREATE",
+    "CLIENTS_READ",
+    "CLIENTS_UPDATE",
+    "CLIENTS_ACTIVATE",
+    "CLIENTS_SUSPEND",
+    "CLIENTS_TERMINATE",
+    "CLIENTS_CONNECTION_TYPE_UPDATE",
+    "CLIENTS_STATIC_IP_ASSIGN",
+    "CLIENTS_STATIC_IP_RELEASE",
+    "SUBSCRIPTIONS_CREATE",
+    "SUBSCRIPTIONS_READ",
+    "SUBSCRIPTIONS_TERMINATE",
+    "SUBSCRIPTIONS_RENEW",
+    "SUBSCRIPTIONS_UPGRADE",
+    "USAGE_LOGS_CREATE",
+    "USAGE_LOGS_READ",
+    "INVOICES_READ",
+    "SERVICE_PLANS_READ",
+    "STATIC_IP_READ",
+    "BANDWIDTH_POOL_READ",
+    "PPPOE_REQUESTS_CREATE",
+    "PPPOE_REQUESTS_READ",
+    "PPPOE_REQUESTS_APPROVE",
+    "PPPOE_REQUESTS_REJECT",
+    "AUDIT_LOGS_READ",
+    "SUSPENSION_HISTORY_READ",
+    "POS_READ",
+  ];
 }
 
 /**

@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import {
   useUsers,
   useCreateUser,
@@ -47,7 +48,7 @@ import {
 } from "lucide-react";
 
 const CAPABILITIES_BY_CATEGORY = {
-  "Point of Sale": ["POS_CREATE", "POS_READ", "POS_UPDATE", "POS_DELETE"],
+  "Point of Sale": ["POS_CREATE", "POS_READ", "POS_UPDATE"],
   "Client Management": [
     "CLIENTS_CREATE",
     "CLIENTS_READ",
@@ -155,6 +156,7 @@ const SuccessAnimation = ({ show }: { show: boolean }) => {
 };
 
 export function UsersPage() {
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
 
   const [search, setSearch] = useState("");
@@ -187,12 +189,27 @@ export function UsersPage() {
   const activateUserMutation = useActivateUser();
   const posNameById = new Map(posList.map((pos) => [pos.id, pos.name]));
 
-  // Reset form step when dialog closes
+  // Reset form when dialog closes
   useEffect(() => {
     if (!isDialogOpen) {
       setFormStep(0);
+      setNewUser({
+        username: "",
+        email: "",
+        password: "",
+        role: UserRole.WSP_ADMIN,
+        posId: "",
+        capabilities: [],
+      });
+      setCapabilitySearch("");
+      setSelectAll(false);
     }
   }, [isDialogOpen]);
+
+  // Update selectAll state when capabilities change
+  useEffect(() => {
+    setSelectAll(newUser.capabilities.length === CAPABILITIES.length);
+  }, [newUser.capabilities]);
 
   // Filter users by search and role
   const filteredUsers = users.filter((user) => {
@@ -221,7 +238,7 @@ export function UsersPage() {
         !newUser.posId
       ) {
         toast({
-          title: "POS is required for this role",
+          title: t("POS is required for this role"),
           variant: "destructive",
         });
         return;
@@ -231,7 +248,7 @@ export function UsersPage() {
         newUser.capabilities.length === 0
       ) {
         toast({
-          title: "Sub Admin must have at least one capability",
+          title: t("Sub Admin must have at least one capability"),
           variant: "destructive",
         });
         return;
@@ -255,16 +272,8 @@ export function UsersPage() {
       setShowSuccess(true);
       setTimeout(() => {
         setShowSuccess(false);
-        toast({ title: "User created successfully" });
+        toast({ title: t("User created successfully") });
         setIsDialogOpen(false);
-        setNewUser({
-          username: "",
-          email: "",
-          password: "",
-          role: UserRole.WSP_ADMIN,
-          posId: "",
-          capabilities: [],
-        });
       }, 1500);
     } catch (error) {
       const rawMessage = (
@@ -272,7 +281,7 @@ export function UsersPage() {
       )?.response?.data?.message;
       const message = Array.isArray(rawMessage)
         ? rawMessage.join(", ")
-        : rawMessage || "Failed to create user";
+        : rawMessage || t("Failed to create user");
       toast({ title: message, variant: "destructive" });
     } finally {
       setIsCreating(false);
@@ -296,10 +305,8 @@ export function UsersPage() {
   const toggleAllCapabilities = () => {
     if (selectAll) {
       setNewUser({ ...newUser, capabilities: [] });
-      setSelectAll(false);
     } else {
       setNewUser({ ...newUser, capabilities: [...CAPABILITIES] });
-      setSelectAll(true);
     }
   };
 
@@ -354,7 +361,7 @@ export function UsersPage() {
     }
     try {
       await deactivateUserMutation.mutateAsync(selectedUser.id);
-      toast({ title: "User deactivated" });
+      toast({ title: t("User deactivated") });
       setIsDetailsOpen(false);
     } catch (error) {
       const rawMessage = (
@@ -362,7 +369,7 @@ export function UsersPage() {
       )?.response?.data?.message;
       const message = Array.isArray(rawMessage)
         ? rawMessage.join(", ")
-        : rawMessage || "Failed to deactivate user";
+        : rawMessage || t("Failed to deactivate user");
       toast({ title: message, variant: "destructive" });
     }
   };
@@ -373,7 +380,7 @@ export function UsersPage() {
     }
     try {
       await activateUserMutation.mutateAsync(selectedUser.id);
-      toast({ title: "User activated" });
+      toast({ title: t("User activated") });
       setIsDetailsOpen(false);
     } catch (error) {
       const rawMessage = (
@@ -381,78 +388,204 @@ export function UsersPage() {
       )?.response?.data?.message;
       const message = Array.isArray(rawMessage)
         ? rawMessage.join(", ")
-        : rawMessage || "Failed to activate user";
+        : rawMessage || t("Failed to activate user");
       toast({ title: message, variant: "destructive" });
     }
   };
 
+  // Updated Columns Configuration with Fixed Widths
+
   const columns = [
+    // User Column
     {
       key: "username",
-      header: "User",
+      header: t("User"),
+      headerClassName: "min-w-[260px]", // Increased for better spacing
+      cellClassName: "min-w-[260px]",
       render: (user: User) => (
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-primary/10 flex items-center justify-center">
+        <div className="flex items-center gap-3 overflow-hidden">
+          <div className="w-10 h-10 rounded-full bg-gradient-to-br from-primary/20 to-primary/5 flex items-center justify-center ring-2 ring-primary/10 shrink-0">
             <UserCircle className="w-5 h-5 text-primary" />
           </div>
-          <div>
-            <p className="font-medium">{user.username}</p>
-            <p className="text-xs text-muted-foreground">{user.email}</p>
+          <div className="min-w-0 flex-1">
+            <p className="font-semibold text-foreground truncate">
+              {user.username}
+            </p>
+            <p
+              className="text-xs text-muted-foreground truncate"
+              title={user.email}
+            >
+              {user.email}
+            </p>
           </div>
         </div>
       ),
     },
+
+    // Role Column
     {
       key: "role",
-      header: "Role",
-      className: "w-40",
-      render: (user: User) => (
-        <span className="capitalize badge-info">
-          {user.role.replace("_", " ").toLowerCase()}
-        </span>
-      ),
-    },
-    {
-      key: "pos",
-      header: "POS",
-      render: (user: User) =>
-        user.role === UserRole.POS_MANAGER
-          ? user.pos?.name ||
-            (user.posId ? posNameById.get(user.posId) : undefined) ||
-            "-"
-          : "-",
-    },
-    {
-      key: "capabilities",
-      header: "Capabilities",
+      header: t("Role"),
+      headerClassName: "w-[160px]",
+      cellClassName: "w-[160px]",
       render: (user: User) => {
-        if (user.role !== UserRole.SUB_ADMIN) {
-          return "-";
-        }
-        if (!user.capabilities || user.capabilities.length === 0) {
-          return "-";
-        }
-        const text = user.capabilities.join(", ");
+        const roleConfig = {
+          [UserRole.WSP_ADMIN]: {
+            label: t("WSP Admin"),
+            className:
+              "bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300",
+          },
+          [UserRole.SUB_ADMIN]: {
+            label: t("Sub Admin"),
+            className:
+              "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300",
+          },
+          [UserRole.POS_MANAGER]: {
+            label: t("POS Manager"),
+            className:
+              "bg-green-100 text-green-700 dark:bg-green-900/30 dark:text-green-300",
+          },
+        };
+
+        const config = roleConfig[user.role] || {
+          label: t("Unknown"),
+          className:
+            "bg-gray-100 text-gray-700 dark:bg-gray-900/30 dark:text-gray-300",
+        };
+
         return (
-          <span className="text-xs text-muted-foreground" title={text}>
-            {text}
+          <span
+            className={`inline-flex items-center px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap ${config.className}`}
+          >
+            {config.label}
           </span>
         );
       },
     },
+
+    // POS Column
+    {
+      key: "pos",
+      header: t("POS"),
+      headerClassName: "min-w-[200px]",
+      cellClassName: "min-w-[200px]",
+      render: (user: User) => {
+        const posValue =
+          user.role === UserRole.POS_MANAGER
+            ? user.pos?.name ||
+              (user.posId ? posNameById.get(user.posId) : undefined) ||
+              t("N/A")
+            : t("N/A");
+
+        const isNA = posValue === t("N/A");
+
+        return (
+          <span
+            className={`block truncate ${
+              isNA
+                ? "text-muted-foreground italic text-sm"
+                : "text-foreground font-medium"
+            }`}
+            title={posValue}
+          >
+            {posValue}
+          </span>
+        );
+      },
+    },
+
+    // Capabilities Column
+    {
+      key: "capabilities",
+      header: t("Capabilities"),
+      headerClassName: "min-w-[260px]",
+      cellClassName: "min-w-[260px]",
+      render: (user: User) => {
+        if (user.role !== UserRole.SUB_ADMIN) {
+          return (
+            <span className="text-muted-foreground italic text-sm">
+              {t("N/A")}
+            </span>
+          );
+        }
+
+        if (!user.capabilities || user.capabilities.length === 0) {
+          return (
+            <span className="text-muted-foreground italic text-sm">
+              {t("N/A")}
+            </span>
+          );
+        }
+
+        const text = user.capabilities
+          .map((cap) => t(cap)) // Translate capabilities if needed
+          .join(", ");
+
+        return (
+          <div className="flex items-center gap-2 overflow-hidden">
+            <span className="inline-flex items-center gap-1.5 px-2 py-1 bg-muted/50 rounded text-xs text-muted-foreground shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-primary/60" />
+              {user.capabilities.length}
+            </span>
+            <span
+              className="truncate text-xs text-foreground flex-1"
+              title={text}
+            >
+              {text}
+            </span>
+          </div>
+        );
+      },
+    },
+
+    // Status Column
     {
       key: "isActive",
-      header: "Status",
+      header: t("Status"),
+      headerClassName: "w-[120px]",
+      cellClassName: "w-[120px]",
       render: (user: User) => (
         <StatusBadge status={user.isActive ? "active" : "inactive"} />
       ),
     },
+
+    // Created Date Column
     {
       key: "createdAt",
-      header: "Created",
-      render: (user: User) => new Date(user.createdAt).toLocaleDateString(),
+      header: t("Created"),
+      headerClassName: "w-[150px]",
+      cellClassName: "w-[150px]",
+      render: (user: User) => {
+        const locale = i18n.language === "ar" ? "ar-EG" : "en-US";
+        const date = new Date(user.createdAt);
+
+        return (
+          <div className="flex flex-col gap-0.5">
+            <span className="text-sm text-foreground whitespace-nowrap">
+              {date.toLocaleDateString(locale, {
+                year: "numeric",
+                month: "short",
+                day: "numeric",
+              })}
+            </span>
+            <span className="text-xs text-muted-foreground whitespace-nowrap">
+              {date.toLocaleTimeString(locale, {
+                hour: "2-digit",
+                minute: "2-digit",
+              })}
+            </span>
+          </div>
+        );
+      },
     },
   ];
+  // Determine the maximum step based on role
+  const getMaxStep = () => {
+    if (newUser.role === UserRole.SUB_ADMIN) {
+      return 2; // 3 steps total (0, 1, 2)
+    }
+    return 1; // 2 steps total (0, 1)
+  };
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -607,18 +740,18 @@ export function UsersPage() {
       `}</style>
 
       <PageHeader
-        title="User Management"
-        description="Manage system users and their permissions"
+        title={t("User Management")}
+        description={t("Manage system users and their permissions")}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
               <Button className="group relative overflow-hidden">
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/50 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <Plus className="w-4 h-4 mr-2 relative z-10 group-hover:rotate-90 transition-transform duration-300" />
-                <span className="relative z-10">Add User</span>
+                <span className="relative z-10">{t("Add User")}</span>
               </Button>
             </DialogTrigger>
-            <DialogContent className="sm:max-w-[700px] p-0 overflow-hidden border-2 border-primary/20">
+            <DialogContent className="sm:max-w-[700px] max-h-[calc(100vh-6rem)] p-0 overflow-y-auto overflow-x-hidden border-2 border-primary/20">
               <SuccessAnimation show={showSuccess} />
 
               {/* Animated Background */}
@@ -637,25 +770,25 @@ export function UsersPage() {
                       </div>
                       <div>
                         <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                          Create New User
+                          {t("Create New User")}
                         </DialogTitle>
                         <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                           <Zap className="w-3 h-3" />
-                          Add a new team member with custom permissions
+                          {t("Add a new team member with custom permissions")}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
                       <Award className="w-5 h-5 text-primary animate-pulse" />
                       <span className="text-xs font-medium text-primary">
-                        Pro
+                        {t("Pro")}
                       </span>
                     </div>
                   </div>
 
                   {/* Step Indicators */}
                   <div className="flex items-center gap-2">
-                    {[0, 1, 2].map((step) => (
+                    {Array.from({ length: getMaxStep() + 1 }).map((_, step) => (
                       <div
                         key={step}
                         className={`step-indicator h-1.5 rounded-full transition-all duration-500 ${
@@ -672,182 +805,180 @@ export function UsersPage() {
               </div>
 
               {/* Form Content with Scroll */}
-              <div className="relative max-h-[55vh] overflow-y-auto p-8 space-y-6">
+              <div className="relative p-8 space-y-6">
                 {/* Step 0: Basic Info */}
-                <div
-                  className={`space-y-5 ${formStep === 0 ? "animate-slide-up" : "hidden"}`}
-                >
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-semibold mb-2">
-                      Basic Information
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Let's start with the essentials
-                    </p>
-                  </div>
+                {formStep === 0 && (
+                  <div className="space-y-5 animate-slide-up">
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-semibold mb-2">
+                        {t("Basic Information")}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {t("Let's start with the essentials")}
+                      </p>
+                    </div>
 
-                  {/* Username Field */}
-                  <div className="space-y-2 group animate-slide-up">
-                    <Label className="flex items-center gap-2 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
-                        <UserCircle className="w-4 h-4 text-primary" />
-                      </div>
-                      Username
-                    </Label>
-                    <Input
-                      value={newUser.username}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, username: e.target.value })
-                      }
-                      className="h-12 border-2 focus:border-primary transition-all duration-300 hover:border-primary/50"
-                      placeholder="johndoe"
-                    />
-                  </div>
+                    {/* Username Field */}
+                    <div className="space-y-2 group animate-slide-up">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <div className="w-8 h-8 rounded-lg bg-primary/10 flex items-center justify-center group-hover:bg-primary/20 transition-colors">
+                          <UserCircle className="w-4 h-4 text-primary" />
+                        </div>
+                        {t("Username")}
+                      </Label>
+                      <Input
+                        value={newUser.username}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, username: e.target.value })
+                        }
+                        className="h-12 border-2 focus:border-primary transition-all duration-300 hover:border-primary/50"
+                        placeholder={t("johndoe")}
+                      />
+                    </div>
 
-                  {/* Email Field */}
-                  <div className="space-y-2 group animate-slide-up delay-100">
-                    <Label className="flex items-center gap-2 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
-                        <Mail className="w-4 h-4 text-blue-500" />
-                      </div>
-                      Email Address
-                    </Label>
-                    <Input
-                      type="email"
-                      value={newUser.email}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, email: e.target.value })
-                      }
-                      className="h-12 border-2 focus:border-blue-500 transition-all duration-300 hover:border-blue-500/50"
-                      placeholder="john@example.com"
-                    />
-                  </div>
-
-                  {/* Password Field */}
-                  <div className="space-y-2 group animate-slide-up delay-200">
-                    <Label className="flex items-center gap-2 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
-                        <Lock className="w-4 h-4 text-purple-500" />
-                      </div>
-                      Password
-                    </Label>
-                    <Input
-                      type="password"
-                      value={newUser.password}
-                      onChange={(e) =>
-                        setNewUser({ ...newUser, password: e.target.value })
-                      }
-                      className="h-12 border-2 focus:border-purple-500 transition-all duration-300 hover:border-purple-500/50"
-                      placeholder="••••••••"
-                    />
-                  </div>
-                </div>
-
-                {/* Step 1: Role & Assignment */}
-                <div
-                  className={`space-y-5 ${formStep === 1 ? "animate-slide-up" : "hidden"}`}
-                >
-                  <div className="text-center mb-6">
-                    <h3 className="text-xl font-semibold mb-2">
-                      Role & Assignment
-                    </h3>
-                    <p className="text-sm text-muted-foreground">
-                      Define user role and access level
-                    </p>
-                  </div>
-
-                  {/* Role Field */}
-                  <div className="space-y-2 group animate-slide-up">
-                    <Label className="flex items-center gap-2 text-sm font-medium">
-                      <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
-                        <Shield className="w-4 h-4 text-green-500" />
-                      </div>
-                      User Role
-                    </Label>
-                    <Select
-                      value={newUser.role}
-                      onValueChange={(v) =>
-                        setNewUser({
-                          ...newUser,
-                          role: v as UserRole,
-                          posId: v === "POS_MANAGER" ? newUser.posId : "",
-                        })
-                      }
-                    >
-                      <SelectTrigger className="h-12 border-2 focus:border-green-500 transition-all duration-300">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="WSP_ADMIN">
-                          <div className="flex items-center gap-2">
-                            <Shield className="w-4 h-4" />
-                            WSP Admin
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="SUB_ADMIN">
-                          <div className="flex items-center gap-2">
-                            <Award className="w-4 h-4" />
-                            Sub Admin
-                          </div>
-                        </SelectItem>
-                        <SelectItem value="POS_MANAGER">
-                          <div className="flex items-center gap-2">
-                            <Building2 className="w-4 h-4" />
-                            POS Manager
-                          </div>
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  {/* POS Assignment */}
-                  {(newUser.role === "POS_MANAGER" ||
-                    newUser.role === "CLIENT") && (
+                    {/* Email Field */}
                     <div className="space-y-2 group animate-slide-up delay-100">
                       <Label className="flex items-center gap-2 text-sm font-medium">
-                        <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
-                          <Building2 className="w-4 h-4 text-orange-500" />
+                        <div className="w-8 h-8 rounded-lg bg-blue-500/10 flex items-center justify-center group-hover:bg-blue-500/20 transition-colors">
+                          <Mail className="w-4 h-4 text-blue-500" />
                         </div>
-                        Assign Point of Sale
+                        {t("Email Address")}
+                      </Label>
+                      <Input
+                        type="email"
+                        value={newUser.email}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, email: e.target.value })
+                        }
+                        className="h-12 border-2 focus:border-blue-500 transition-all duration-300 hover:border-blue-500/50"
+                        placeholder={t("john@example.com")}
+                      />
+                    </div>
+
+                    {/* Password Field */}
+                    <div className="space-y-2 group animate-slide-up delay-200">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <div className="w-8 h-8 rounded-lg bg-purple-500/10 flex items-center justify-center group-hover:bg-purple-500/20 transition-colors">
+                          <Lock className="w-4 h-4 text-purple-500" />
+                        </div>
+                        {t("Password")}
+                      </Label>
+                      <Input
+                        type="password"
+                        value={newUser.password}
+                        onChange={(e) =>
+                          setNewUser({ ...newUser, password: e.target.value })
+                        }
+                        className="h-12 border-2 focus:border-purple-500 transition-all duration-300 hover:border-purple-500/50"
+                        placeholder={t("••••••••")}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                {/* Step 1: Role & Assignment */}
+                {formStep === 1 && (
+                  <div className="space-y-5 animate-slide-up">
+                    <div className="text-center mb-6">
+                      <h3 className="text-xl font-semibold mb-2">
+                        {t("Role & Assignment")}
+                      </h3>
+                      <p className="text-sm text-muted-foreground">
+                        {t("Define user role and access level")}
+                      </p>
+                    </div>
+
+                    {/* Role Field */}
+                    <div className="space-y-2 group animate-slide-up">
+                      <Label className="flex items-center gap-2 text-sm font-medium">
+                        <div className="w-8 h-8 rounded-lg bg-green-500/10 flex items-center justify-center group-hover:bg-green-500/20 transition-colors">
+                          <Shield className="w-4 h-4 text-green-500" />
+                        </div>
+                        {t("User Role")}
                       </Label>
                       <Select
-                        value={newUser.posId}
+                        value={newUser.role}
                         onValueChange={(v) =>
-                          setNewUser({ ...newUser, posId: v })
+                          setNewUser({
+                            ...newUser,
+                            role: v as UserRole,
+                            posId: v === "POS_MANAGER" ? newUser.posId : "",
+                          })
                         }
                       >
-                        <SelectTrigger className="h-12 border-2 focus:border-orange-500 transition-all duration-300">
-                          <SelectValue placeholder="Select POS" />
+                        <SelectTrigger className="h-12 border-2 focus:border-green-500 transition-all duration-300">
+                          <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          {posList.map((pos) => (
-                            <SelectItem key={pos.id} value={pos.id}>
-                              {pos.name}
-                            </SelectItem>
-                          ))}
+                          <SelectItem value="WSP_ADMIN">
+                            <div className="flex items-center gap-2">
+                              <Shield className="w-4 h-4" />
+                              {t("WSP Admin")}
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="SUB_ADMIN">
+                            <div className="flex items-center gap-2">
+                              <Award className="w-4 h-4" />
+                              {t("Sub Admin")}
+                            </div>
+                          </SelectItem>
+                          <SelectItem value="POS_MANAGER">
+                            <div className="flex items-center gap-2">
+                              <Building2 className="w-4 h-4" />
+                              {t("POS Manager")}
+                            </div>
+                          </SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                  )}
-                </div>
 
-                {/* Step 2: Capabilities */}
-                {newUser.role === UserRole.SUB_ADMIN && (
-                  <div
-                    className={`space-y-5 ${formStep === 2 ? "animate-slide-up" : "hidden"}`}
-                  >
+                    {/* POS Assignment */}
+                    {(newUser.role === "POS_MANAGER" ||
+                      newUser.role === "CLIENT") && (
+                      <div className="space-y-2 group animate-slide-up delay-100">
+                        <Label className="flex items-center gap-2 text-sm font-medium">
+                          <div className="w-8 h-8 rounded-lg bg-orange-500/10 flex items-center justify-center group-hover:bg-orange-500/20 transition-colors">
+                            <Building2 className="w-4 h-4 text-orange-500" />
+                          </div>
+                          {t("Assign Point of Sale")}
+                        </Label>
+                        <Select
+                          value={newUser.posId}
+                          onValueChange={(v) =>
+                            setNewUser({ ...newUser, posId: v })
+                          }
+                        >
+                          <SelectTrigger className="h-12 border-2 focus:border-orange-500 transition-all duration-300">
+                            <SelectValue placeholder={t("Select POS")} />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {posList.map((pos) => (
+                              <SelectItem key={pos.id} value={pos.id}>
+                                {pos.name}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Step 2: Capabilities (only for SUB_ADMIN) */}
+                {formStep === 2 && newUser.role === UserRole.SUB_ADMIN && (
+                  <div className="space-y-5 animate-slide-up">
                     <div className="text-center mb-6">
                       <h3 className="text-xl font-semibold mb-2">
-                        Capabilities & Permissions
+                        {t("Capabilities & Permissions")}
                       </h3>
                       <p className="text-sm text-muted-foreground">
-                        Select permissions for this sub-admin
+                        {t("Select permissions for this sub-admin")}
                       </p>
                       <div className="inline-flex items-center gap-2 mt-3 px-4 py-2 rounded-full bg-gradient-to-r from-primary/20 to-primary/10 border border-primary/30 animate-gradient">
                         <TrendingUp className="w-4 h-4 text-primary" />
                         <span className="text-sm font-medium text-primary">
                           {newUser.capabilities.length} of {CAPABILITIES.length}{" "}
-                          selected
+                          {t("selected")}
                         </span>
                       </div>
                     </div>
@@ -858,7 +989,7 @@ export function UsersPage() {
                         <div className="relative flex-1">
                           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
                           <Input
-                            placeholder="Search capabilities..."
+                            placeholder={t("Search capabilities...")}
                             value={capabilitySearch}
                             onChange={(e) =>
                               setCapabilitySearch(e.target.value)
@@ -875,12 +1006,12 @@ export function UsersPage() {
                           {selectAll ? (
                             <>
                               <XCircle className="w-4 h-4 mr-2" />
-                              Deselect All
+                              {t("Deselect All")}
                             </>
                           ) : (
                             <>
                               <CheckCircle2 className="w-4 h-4 mr-2" />
-                              Select All
+                              {t("Select All")}
                             </>
                           )}
                         </Button>
@@ -895,7 +1026,7 @@ export function UsersPage() {
                           <div className="p-8 text-center">
                             <Search className="w-12 h-12 mx-auto mb-3 text-muted-foreground/50" />
                             <p className="text-sm text-muted-foreground">
-                              No capabilities found
+                              {t("No capabilities found")}
                             </p>
                           </div>
                         ) : (
@@ -1047,7 +1178,7 @@ export function UsersPage() {
                         <div className="flex items-center justify-between mb-3">
                           <p className="text-xs font-semibold text-muted-foreground flex items-center gap-2">
                             <CheckCircle2 className="w-4 h-4 text-primary" />
-                            Selected Capabilities
+                            {t("Selected Capabilities")}
                           </p>
                           <button
                             type="button"
@@ -1057,7 +1188,7 @@ export function UsersPage() {
                             className="text-xs text-muted-foreground hover:text-destructive transition-colors flex items-center gap-1"
                           >
                             <XCircle className="w-3 h-3" />
-                            Clear all
+                            {t("Clear all")}
                           </button>
                         </div>
                         <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto custom-scrollbar">
@@ -1094,33 +1225,33 @@ export function UsersPage() {
                       onClick={() => setFormStep(formStep - 1)}
                       className="flex-1 h-12 border-2 hover:border-primary transition-all duration-300"
                     >
-                      Previous
+                      {t("Previous")}
                     </Button>
                   )}
 
-                  {/* Show Next button on step 0 */}
+                  {/* Next button for step 0 */}
                   {formStep === 0 && (
                     <Button
                       onClick={() => setFormStep(1)}
                       className="flex-1 h-12 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-xl shadow-primary/30 transition-all duration-300 hover:scale-[1.02]"
                     >
-                      Next Step
+                      {t("Next Step")}
                       <TrendingUp className="w-4 h-4 ml-2" />
                     </Button>
                   )}
 
-                  {/* Show Next button on step 1 only for Sub Admin (to go to capabilities) */}
+                  {/* Next button for step 1 ONLY if Sub Admin */}
                   {formStep === 1 && newUser.role === UserRole.SUB_ADMIN && (
                     <Button
                       onClick={() => setFormStep(2)}
                       className="flex-1 h-12 bg-gradient-to-r from-primary to-primary/80 hover:from-primary/90 hover:to-primary/70 shadow-xl shadow-primary/30 transition-all duration-300 hover:scale-[1.02]"
                     >
-                      Configure Capabilities
+                      {t("Configure Capabilities")}
                       <Shield className="w-4 h-4 ml-2" />
                     </Button>
                   )}
 
-                  {/* Show Create button on step 1 for non-Sub Admin roles */}
+                  {/* Create button for step 1 if NOT Sub Admin */}
                   {formStep === 1 && newUser.role !== UserRole.SUB_ADMIN && (
                     <Button
                       className="flex-1 h-12 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-2xl shadow-green-500/40 transition-all duration-300 hover:scale-[1.02] animate-glow relative overflow-hidden group"
@@ -1132,20 +1263,22 @@ export function UsersPage() {
                         <>
                           <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin mr-2" />
                           <span className="relative z-10">
-                            Creating User...
+                            {t("Creating User...")}
                           </span>
                         </>
                       ) : (
                         <>
                           <CheckCircle2 className="w-5 h-5 mr-2 relative z-10" />
-                          <span className="relative z-10">Create User</span>
+                          <span className="relative z-10">
+                            {t("Create User")}
+                          </span>
                           <Sparkles className="w-4 h-4 ml-2 relative z-10 group-hover:rotate-12 transition-transform" />
                         </>
                       )}
                     </Button>
                   )}
 
-                  {/* Show Create button on step 2 for Sub Admin */}
+                  {/* Create button for step 2 (Sub Admin capabilities) */}
                   {formStep === 2 && newUser.role === UserRole.SUB_ADMIN && (
                     <Button
                       className="flex-1 h-12 bg-gradient-to-r from-green-500 to-green-600 hover:from-green-600 hover:to-green-700 text-white shadow-2xl shadow-green-500/40 transition-all duration-300 hover:scale-[1.02] animate-glow relative overflow-hidden group"
@@ -1157,13 +1290,15 @@ export function UsersPage() {
                         <>
                           <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin mr-2" />
                           <span className="relative z-10">
-                            Creating User...
+                            {t("Creating User...")}
                           </span>
                         </>
                       ) : (
                         <>
                           <CheckCircle2 className="w-5 h-5 mr-2 relative z-10" />
-                          <span className="relative z-10">Create User</span>
+                          <span className="relative z-10">
+                            {t("Create User")}
+                          </span>
                           <Sparkles className="w-4 h-4 ml-2 relative z-10 group-hover:rotate-12 transition-transform" />
                         </>
                       )}
@@ -1181,7 +1316,7 @@ export function UsersPage() {
         <div className="relative flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search users..."
+            placeholder={t("Search users...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10"
@@ -1194,13 +1329,13 @@ export function UsersPage() {
           }
         >
           <SelectTrigger className="w-full sm:w-40">
-            <SelectValue placeholder="All Roles" />
+            <SelectValue placeholder={t("All Roles")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">All Roles</SelectItem>
-            <SelectItem value="WSP_ADMIN">WSP Admin</SelectItem>
-            <SelectItem value="SUB_ADMIN">Sub Admin</SelectItem>
-            <SelectItem value="POS_MANAGER">POS Manager</SelectItem>
+            <SelectItem value="all">{t("All Roles")}</SelectItem>
+            <SelectItem value="WSP_ADMIN">{t("WSP Admin")}</SelectItem>
+            <SelectItem value="SUB_ADMIN">{t("Sub Admin")}</SelectItem>
+            <SelectItem value="POS_MANAGER">{t("POS Manager")}</SelectItem>
           </SelectContent>
         </Select>
       </div>
@@ -1209,13 +1344,13 @@ export function UsersPage() {
         columns={columns}
         data={filteredUsers}
         isLoading={isLoading}
-        emptyMessage="No users found"
+        emptyMessage={t("No users found")}
         onRowClick={openUserDetails}
       />
 
       {/* User Details Dialog - Advanced Version */}
       <Dialog open={isDetailsOpen} onOpenChange={setIsDetailsOpen}>
-        <DialogContent className="sm:max-w-[600px] p-0 overflow-hidden border-2 border-primary/20">
+        <DialogContent className="sm:max-w-[600px] max-h-[calc(100vh-6rem)] p-0 overflow-y-auto overflow-x-hidden border-2 border-primary/20">
           {selectedUser && (
             <>
               <AnimatedBackground />
@@ -1271,7 +1406,7 @@ export function UsersPage() {
                         <Calendar className="w-5 h-5 text-blue-500" />
                       </div>
                       <p className="text-sm font-medium text-muted-foreground">
-                        Created
+                        {t("Created")}
                       </p>
                     </div>
                     <p className="text-lg font-bold">
@@ -1302,11 +1437,11 @@ export function UsersPage() {
                         )}
                       </div>
                       <p className="text-sm font-medium text-muted-foreground">
-                        Status
+                        {t("Status")}
                       </p>
                     </div>
                     <p className="text-lg font-bold">
-                      {selectedUser.isActive ? "Active" : "Inactive"}
+                      {selectedUser.isActive ? t("Active") : t("Inactive")}
                     </p>
                   </div>
                 </div>
@@ -1319,7 +1454,7 @@ export function UsersPage() {
                         <Building2 className="w-6 h-6 text-orange-500" />
                       </div>
                       <p className="text-sm font-medium text-muted-foreground">
-                        Point of Sale
+                        {t("Point of Sale")}
                       </p>
                     </div>
                     <p className="text-xl font-bold">
@@ -1341,13 +1476,13 @@ export function UsersPage() {
                       </div>
                       <div className="flex-1">
                         <p className="text-sm font-medium text-muted-foreground">
-                          Capabilities
+                          {t("Capabilities")}
                         </p>
                         {selectedUser.capabilities &&
                           selectedUser.capabilities.length > 0 && (
                             <p className="text-xs text-muted-foreground">
-                              {selectedUser.capabilities.length} permissions
-                              granted
+                              {selectedUser.capabilities.length}{" "}
+                              {t("permissions granted")}
                             </p>
                           )}
                       </div>
@@ -1368,7 +1503,7 @@ export function UsersPage() {
                       </div>
                     ) : (
                       <p className="text-sm text-muted-foreground">
-                        No capabilities assigned
+                        {t("No capabilities assigned")}
                       </p>
                     )}
                   </div>
@@ -1387,12 +1522,16 @@ export function UsersPage() {
                       {deactivateUserMutation.isPending ? (
                         <>
                           <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin mr-2 relative z-10" />
-                          <span className="relative z-10">Deactivating...</span>
+                          <span className="relative z-10">
+                            {t("Deactivating...")}
+                          </span>
                         </>
                       ) : (
                         <>
                           <XCircle className="w-5 h-5 mr-2 relative z-10" />
-                          <span className="relative z-10">Deactivate User</span>
+                          <span className="relative z-10">
+                            {t("Deactivate User")}
+                          </span>
                         </>
                       )}
                     </Button>
@@ -1406,12 +1545,16 @@ export function UsersPage() {
                       {activateUserMutation.isPending ? (
                         <>
                           <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin mr-2 relative z-10" />
-                          <span className="relative z-10">Activating...</span>
+                          <span className="relative z-10">
+                            {t("Activating...")}
+                          </span>
                         </>
                       ) : (
                         <>
                           <CheckCircle2 className="w-5 h-5 mr-2 relative z-10" />
-                          <span className="relative z-10">Activate User</span>
+                          <span className="relative z-10">
+                            {t("Activate User")}
+                          </span>
                           <Sparkles className="w-4 h-4 ml-2 relative z-10" />
                         </>
                       )}

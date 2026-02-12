@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { ConnectionType, StaticIPStatus } from "@/types/api.types";
 import type { Client } from "@/types/api.types";
@@ -22,9 +22,11 @@ import {
 } from "@/components/ui/dialog";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/hooks/use-toast";
+import { isValidPhone10, normalizePhone10 } from "@/utils/phone";
 import {
   Building2,
   CheckCircle2,
+  Lock,
   Mail,
   MapPin,
   Network,
@@ -36,14 +38,20 @@ import {
   Zap,
 } from "lucide-react";
 import { useClients, useCreateClient, clientKeys } from "@/hooks/useclients";
-import { usePOSList } from "@/hooks/usePos";
+import { usePOS, usePOSList } from "@/hooks/usePos";
 import { useStaticIPs } from "@/hooks/useStaticIp";
 import { useQueryClient } from "@tanstack/react-query";
+import { useStore } from "@/store/auth-store";
+import { UserRole } from "@/types/api.types";
+import { useTranslation } from "react-i18next";
 
 export function ClientsPage() {
+  const { t } = useTranslation();
   const navigate = useNavigate();
   const { toast } = useToast();
   const queryClient = useQueryClient();
+  const { user } = useStore();
+  const isPosManager = user?.role === UserRole.POS_MANAGER;
 
   const [search, setSearch] = useState("");
   const [connectionTypeFilter, setConnectionTypeFilter] =
@@ -57,6 +65,7 @@ export function ClientsPage() {
     email: "",
     phone: "",
     address: "",
+    password: "",
     connectionType: ConnectionType.DYNAMIC,
     posId: "",
     staticIpId: "",
@@ -69,13 +78,33 @@ export function ClientsPage() {
     limit: 1000,
   });
 
-  const { data: posList = [] } = usePOSList();
+  const { data: posList = [] } = usePOSList({ enabled: !isPosManager });
+  const { data: managerPos } = usePOS(isPosManager ? user?.posId || "" : "");
+  const managerPosOption =
+    isPosManager && user?.posId
+      ? [
+          {
+            id: user.posId,
+            name:
+              user.pos?.name ||
+              managerPos?.name ||
+              `POS ${user.posId.slice(0, 8).toUpperCase()}`,
+          },
+        ]
+      : [];
+  const posOptions = isPosManager ? managerPosOption : posList;
   const posNameById = new Map(posList.map((pos) => [pos.id, pos.name]));
   const { data: staticIPs = [] } = useStaticIPs({
     posId: newClient.posId || undefined,
     status: StaticIPStatus.AVAILABLE,
   });
   const createClientMutation = useCreateClient();
+
+  useEffect(() => {
+    if (isPosManager && user?.posId && !newClient.posId) {
+      setNewClient((prev) => ({ ...prev, posId: user.posId! }));
+    }
+  }, [isPosManager, user?.posId, newClient.posId]);
 
   const clients = clientsData?.data || [];
   const filteredClients = clients.filter((client) => {
@@ -101,12 +130,19 @@ export function ClientsPage() {
 
   const handleCreateClient = async () => {
     try {
+      if (!newClient.password.trim()) {
+        toast({
+          title: t("Password is required"),
+          variant: "destructive",
+        });
+        return;
+      }
       if (
         newClient.connectionType === ConnectionType.STATIC &&
         !newClient.staticIpId
       ) {
         toast({
-          title: "Static IP is required for STATIC connection type",
+          title: t("Static IP is required for STATIC connection type"),
           variant: "destructive",
         });
         return;
@@ -116,7 +152,14 @@ export function ClientsPage() {
         (!newClient.pppoeUsername.trim() || !newClient.pppoePassword.trim())
       ) {
         toast({
-          title: "PPPoE username and password are required",
+          title: t("PPPoE username and password are required"),
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!isValidPhone10(newClient.phone)) {
+        toast({
+          title: t("Phone number must be 10 digits"),
           variant: "destructive",
         });
         return;
@@ -140,31 +183,54 @@ export function ClientsPage() {
           newClient.connectionType === ConnectionType.PPPOE
             ? newClient.pppoePassword || undefined
             : undefined,
+        password: newClient.password,
       };
       await createClientMutation.mutateAsync(payload);
       queryClient.invalidateQueries({ queryKey: clientKeys.lists() });
-      toast({ title: "Client created successfully" });
+      toast({ title: t("Client created successfully") });
       setIsDialogOpen(false);
       setNewClient({
         fullName: "",
         email: "",
         phone: "",
         address: "",
+        password: "",
         connectionType: ConnectionType.DYNAMIC,
         posId: "",
         staticIpId: "",
         pppoeUsername: "",
         pppoePassword: "",
       });
-    } catch {
-      toast({ title: "Failed to create client", variant: "destructive" });
+    } catch (error) {
+      const message =
+        (error as any)?.response?.data?.message ||
+        (error as any)?.message ||
+        t("Please try again.");
+      toast({
+        title: t("Failed to create client"),
+        description: String(message),
+        variant: "destructive",
+      });
     }
+  };
+
+  const getConnectionTypeLabel = (connectionType: ConnectionType) => {
+    if (connectionType === ConnectionType.DYNAMIC) {
+      return t("Dynamic IP");
+    }
+    if (connectionType === ConnectionType.STATIC) {
+      return t("Static IP");
+    }
+    if (connectionType === ConnectionType.PPPOE) {
+      return t("PPPoE");
+    }
+    return connectionType;
   };
 
   const columns = [
     {
       key: "fullName",
-      header: "Client",
+      header: t("Client"),
       render: (client: Client) => (
         <Link
           to={`/clients/${client.id}`}
@@ -178,7 +244,7 @@ export function ClientsPage() {
               {client.fullName}
             </p>
             <p className="text-xs text-muted-foreground truncate">
-              {client.email || "No email"}
+              {client.email || t("No email")}
             </p>
           </div>
         </Link>
@@ -186,26 +252,28 @@ export function ClientsPage() {
     },
     {
       key: "posName",
-      header: "POS",
+      header: t("POS"),
       render: (client: Client) => {
         const name =
           client.pos?.name ||
           (client.posId ? posNameById.get(client.posId) : undefined);
-        return <span className="text-sm sm:text-base">{name || "-"}</span>;
+        return (
+          <span className="text-sm sm:text-base">{name || t("N/A")}</span>
+        );
       },
     },
     {
       key: "connectionType",
-      header: "Type",
+      header: t("Type"),
       render: (client: Client) => (
         <span className="capitalize badge-info">
-          {client.connectionType.toLowerCase().replace("_", " ")}
+          {getConnectionTypeLabel(client.connectionType)}
         </span>
       ),
     },
     {
       key: "status",
-      header: "Status",
+      header: t("Status"),
       render: (client: Client) => (
         <StatusBadge status={client.status.toLowerCase()} />
       ),
@@ -288,8 +356,8 @@ export function ClientsPage() {
       `}</style>
 
       <PageHeader
-        title="Client Management"
-        description="Manage client accounts and subscriptions"
+        title={t("Client Management")}
+        description={t("Manage client accounts and subscriptions")}
         actions={
           <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
             <DialogTrigger asChild>
@@ -297,9 +365,9 @@ export function ClientsPage() {
                 <div className="absolute inset-0 bg-gradient-to-r from-primary/50 to-primary opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                 <Plus className="w-4 h-4 mr-2" />
                 <span className="relative z-10 hidden xs:inline">
-                  Add Client
+                  {t("Add Client")}
                 </span>
-                <span className="relative z-10 xs:hidden">Add</span>
+                <span className="relative z-10 xs:hidden">{t("Add")}</span>
               </Button>
             </DialogTrigger>
             <DialogContent className="sm:max-w-[720px] p-0 overflow-hidden border-2 border-primary/20">
@@ -324,7 +392,7 @@ export function ClientsPage() {
               </div>
 
               {/* Header */}
-              <div className="relative glass-morphism p-8 pb-10 border-b border-white/10">
+              <div className="relative glass-morphism p-8 pb-0 border-b border-white/10">
                 <div className="relative z-10 flex items-start gap-5">
                   <div className="relative">
                     <div className="absolute inset-0 bg-primary/30 rounded-2xl blur-xl animate-pulse" />
@@ -334,11 +402,11 @@ export function ClientsPage() {
                   </div>
                   <div className="flex-1 min-w-0">
                     <DialogTitle className="text-3xl font-bold bg-gradient-to-r from-primary to-primary/60 bg-clip-text text-transparent">
-                      Create New Client
+                      {t("Create New Client")}
                     </DialogTitle>
                     <p className="text-sm text-muted-foreground mt-1 flex items-center gap-2">
                       <Zap className="w-3 h-3" />
-                      Set up a new client profile and connection details
+                      {t("Set up a new client profile and connection details")}
                     </p>
                   </div>
                 </div>
@@ -350,7 +418,7 @@ export function ClientsPage() {
                   <div className="space-y-2">
                     <Label className="text-sm sm:text-base flex items-center gap-2">
                       <UserCircle className="w-4 h-4 text-primary" />
-                      Full Name
+                      {t("Full Name")}
                     </Label>
                     <Input
                       value={newClient.fullName}
@@ -358,13 +426,13 @@ export function ClientsPage() {
                         setNewClient({ ...newClient, fullName: e.target.value })
                       }
                       className="text-sm sm:text-base"
-                      placeholder="Enter full name"
+                      placeholder={t("Enter full name")}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm sm:text-base flex items-center gap-2">
                       <Mail className="w-4 h-4 text-primary" />
-                      Email
+                      {t("Email")}
                     </Label>
                     <Input
                       type="email"
@@ -373,27 +441,50 @@ export function ClientsPage() {
                         setNewClient({ ...newClient, email: e.target.value })
                       }
                       className="text-sm sm:text-base"
-                      placeholder="Enter email address"
+                      placeholder={t("Enter email address")}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label className="text-sm sm:text-base flex items-center gap-2">
+                      <Lock className="w-4 h-4 text-primary" />
+                      {t("Account Password")}
+                    </Label>
+                    <Input
+                      type="password"
+                      value={newClient.password}
+                      onChange={(e) =>
+                        setNewClient({
+                          ...newClient,
+                          password: e.target.value,
+                        })
+                      }
+                      className="text-sm sm:text-base"
+                      placeholder={t("Set account password")}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm sm:text-base flex items-center gap-2">
                       <Phone className="w-4 h-4 text-primary" />
-                      Phone
+                      {t("Phone")}
                     </Label>
                     <Input
                       value={newClient.phone}
                       onChange={(e) =>
-                        setNewClient({ ...newClient, phone: e.target.value })
+                        setNewClient({
+                          ...newClient,
+                          phone: normalizePhone10(e.target.value),
+                        })
                       }
                       className="text-sm sm:text-base"
-                      placeholder="Enter phone number"
+                      placeholder={t("Enter phone number")}
+                      inputMode="numeric"
+                      maxLength={10}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label className="text-sm sm:text-base flex items-center gap-2">
                       <MapPin className="w-4 h-4 text-primary" />
-                      Address
+                      {t("Address")}
                     </Label>
                     <Input
                       value={newClient.address}
@@ -401,7 +492,7 @@ export function ClientsPage() {
                         setNewClient({ ...newClient, address: e.target.value })
                       }
                       className="text-sm sm:text-base"
-                      placeholder="Enter address"
+                      placeholder={t("Enter address")}
                     />
                   </div>
                 </div>
@@ -409,13 +500,13 @@ export function ClientsPage() {
                 <div className="rounded-2xl border border-primary/15 bg-gradient-to-br from-primary/5 via-background to-background p-4 sm:p-5 space-y-4">
                   <div className="flex items-center gap-2 text-sm font-semibold text-muted-foreground">
                     <Building2 className="w-4 h-4 text-primary" />
-                    POS and Connection
+                    {t("POS and Connection")}
                   </div>
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                     <div className="space-y-2">
                       <Label className="text-sm sm:text-base flex items-center gap-2">
                         <Building2 className="w-4 h-4 text-primary" />
-                        POS Location
+                        {t("POS Location")}
                       </Label>
                       <Select
                         value={newClient.posId}
@@ -431,10 +522,10 @@ export function ClientsPage() {
                         }
                       >
                         <SelectTrigger className="text-sm sm:text-base bg-background/60 border-primary/20 focus:ring-2 focus:ring-primary/30 transition-all">
-                          <SelectValue placeholder="Select POS" />
+                          <SelectValue placeholder={t("Select POS")} />
                         </SelectTrigger>
                         <SelectContent>
-                          {posList.map((pos) => (
+                          {posOptions.map((pos) => (
                             <SelectItem
                               key={pos.id}
                               value={pos.id}
@@ -447,14 +538,14 @@ export function ClientsPage() {
                       </Select>
                       {!newClient.posId && (
                         <p className="text-xs text-muted-foreground">
-                          Choose the client’s nearest POS location.
+                          {t("Choose the client's nearest POS location.")}
                         </p>
                       )}
                     </div>
                     <div className="space-y-2">
                       <Label className="text-sm sm:text-base flex items-center gap-2">
                         <Network className="w-4 h-4 text-primary" />
-                        Connection Type
+                        {t("Connection Type")}
                       </Label>
                       <Select
                         value={newClient.connectionType}
@@ -485,19 +576,19 @@ export function ClientsPage() {
                             value="DYNAMIC"
                             className="text-sm sm:text-base"
                           >
-                            Dynamic IP
+                            {t("Dynamic IP")}
                           </SelectItem>
                           <SelectItem
                             value="STATIC"
                             className="text-sm sm:text-base"
                           >
-                            Static IP
+                            {t("Static IP")}
                           </SelectItem>
                           <SelectItem
                             value="PPPOE"
                             className="text-sm sm:text-base"
                           >
-                            PPPoE
+                            {t("PPPoE")}
                           </SelectItem>
                         </SelectContent>
                       </Select>
@@ -506,7 +597,9 @@ export function ClientsPage() {
 
                   {newClient.connectionType === ConnectionType.STATIC && (
                     <div className="space-y-2">
-                      <Label className="text-sm sm:text-base">Static IP</Label>
+                      <Label className="text-sm sm:text-base">
+                        {t("Static IP")}
+                      </Label>
                       <Select
                         value={newClient.staticIpId}
                         onValueChange={(v) =>
@@ -518,8 +611,8 @@ export function ClientsPage() {
                           <SelectValue
                             placeholder={
                               newClient.posId
-                                ? "Select Static IP"
-                                : "Select POS first"
+                                ? t("Select Static IP")
+                                : t("Select POS first")
                             }
                           />
                         </SelectTrigger>
@@ -530,7 +623,7 @@ export function ClientsPage() {
                               disabled
                               className="text-sm sm:text-base"
                             >
-                              No available static IPs
+                              {t("No available static IPs")}
                             </SelectItem>
                           )}
                           {staticIPs.map((ip) => (
@@ -551,7 +644,7 @@ export function ClientsPage() {
                     <div className="grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2">
                       <div className="space-y-2">
                         <Label className="text-sm sm:text-base">
-                          PPPoE Username
+                          {t("PPPoE Username")}
                         </Label>
                         <Input
                           value={newClient.pppoeUsername}
@@ -562,12 +655,12 @@ export function ClientsPage() {
                             })
                           }
                           className="text-sm sm:text-base"
-                          placeholder="Enter username"
+                          placeholder={t("Enter username")}
                         />
                       </div>
                       <div className="space-y-2">
                         <Label className="text-sm sm:text-base">
-                          PPPoE Password
+                          {t("PPPoE Password")}
                         </Label>
                         <Input
                           type="password"
@@ -579,7 +672,7 @@ export function ClientsPage() {
                             })
                           }
                           className="text-sm sm:text-base"
-                          placeholder="Enter password"
+                          placeholder={t("Enter password")}
                         />
                       </div>
                     </div>
@@ -598,12 +691,16 @@ export function ClientsPage() {
                   {createClientMutation.isPending ? (
                     <>
                       <div className="w-5 h-5 border-3 border-white/30 border-t-white rounded-full animate-spin mr-2 relative z-10" />
-                      <span className="relative z-10">Creating Client...</span>
+                      <span className="relative z-10">
+                        {t("Creating Client...")}
+                      </span>
                     </>
                   ) : (
                     <>
                       <CheckCircle2 className="w-5 h-5 mr-2 relative z-10" />
-                      <span className="relative z-10">Create Client</span>
+                      <span className="relative z-10">
+                        {t("Create Client")}
+                      </span>
                       <Sparkles className="w-4 h-4 ml-2 relative z-10 group-hover:rotate-12 transition-transform" />
                     </>
                   )}
@@ -620,7 +717,7 @@ export function ClientsPage() {
         <div className="relative flex-1 min-w-full sm:min-w-[200px] lg:min-w-0">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
           <Input
-            placeholder="Search clients..."
+            placeholder={t("Search clients...")}
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="pl-10 text-sm sm:text-base"
@@ -634,51 +731,51 @@ export function ClientsPage() {
             onValueChange={setConnectionTypeFilter}
           >
             <SelectTrigger className="w-full lg:w-40 text-sm sm:text-base">
-              <SelectValue placeholder="All Types" />
+              <SelectValue placeholder={t("All Types")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-sm sm:text-base">
-                All Types
+                {t("All Types")}
               </SelectItem>
               <SelectItem value="DYNAMIC" className="text-sm sm:text-base">
-                Dynamic
+                {t("Dynamic")}
               </SelectItem>
               <SelectItem value="STATIC" className="text-sm sm:text-base">
-                Static IP
+                {t("Static IP")}
               </SelectItem>
               <SelectItem value="PPPOE" className="text-sm sm:text-base">
-                PPPoE
+                {t("PPPoE")}
               </SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={statusFilter} onValueChange={setStatusFilter}>
             <SelectTrigger className="w-full lg:w-40 text-sm sm:text-base">
-              <SelectValue placeholder="All Status" />
+              <SelectValue placeholder={t("All Status")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-sm sm:text-base">
-                All Status
+                {t("All Status")}
               </SelectItem>
               <SelectItem value="ACTIVE" className="text-sm sm:text-base">
-                Active
+                {t("Active")}
               </SelectItem>
               <SelectItem value="SUSPENDED" className="text-sm sm:text-base">
-                Suspended
+                {t("Suspended")}
               </SelectItem>
               <SelectItem value="TERMINATED" className="text-sm sm:text-base">
-                Terminated
+                {t("Terminated")}
               </SelectItem>
             </SelectContent>
           </Select>
 
           <Select value={posFilter} onValueChange={setPosFilter}>
             <SelectTrigger className="w-full lg:w-40 text-sm sm:text-base xs:col-span-2 lg:col-span-1">
-              <SelectValue placeholder="All POS" />
+              <SelectValue placeholder={t("All POS")} />
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="all" className="text-sm sm:text-base">
-                All POS
+                {t("All POS")}
               </SelectItem>
               {posList.map((pos) => (
                 <SelectItem
@@ -701,7 +798,7 @@ export function ClientsPage() {
             columns={columns}
             data={filteredClients}
             isLoading={isLoading}
-            emptyMessage="No clients found"
+            emptyMessage={t("No clients found")}
             onRowClick={(client) => navigate(`/clients/${client.id}`)}
           />
         </div>

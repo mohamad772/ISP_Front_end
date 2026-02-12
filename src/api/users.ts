@@ -1,4 +1,5 @@
 import type { User, UserRole } from '@/types';
+import i18n from '@/i18n';
 
 const mockUsers: User[] = [
   { id: '1', username: 'admin', email: 'admin@isp.com', fullName: 'System Administrator', role: 'admin', permissions: ['all'], createdAt: '2024-01-01', lastLogin: '2024-03-15', isActive: true },
@@ -54,7 +55,7 @@ export const usersApi = {
   update: async (id: string, data: Partial<User>): Promise<User> => {
     await new Promise((resolve) => setTimeout(resolve, 800));
     const index = mockUsers.findIndex(u => u.id === id);
-    if (index === -1) throw new Error('User not found');
+    if (index === -1) throw new Error(i18n.t('User not found'));
     mockUsers[index] = { ...mockUsers[index], ...data };
     return mockUsers[index];
   },

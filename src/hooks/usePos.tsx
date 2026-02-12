@@ -43,10 +43,13 @@ export const posKeys = {
 /**
  * Hook to fetch all POS locations
  */
-export function usePOSList(): UseQueryResult<POS[], Error> {
+export function usePOSList(
+  options?: { enabled?: boolean },
+): UseQueryResult<POS[], Error> {
   return useQuery({
     queryKey: posKeys.lists(),
     queryFn: getAllPOS,
+    enabled: options?.enabled ?? true,
   });
 }
 

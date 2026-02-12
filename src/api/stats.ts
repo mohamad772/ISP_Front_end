@@ -1,4 +1,5 @@
 import type { DashboardStats } from '@/types';
+import i18n from '@/i18n';
 
 export const statsApi = {
   getAdminDashboard: async (): Promise<DashboardStats> => {
@@ -14,9 +15,9 @@ export const statsApi = {
       monthlyRevenue: 125000,
       unpaidInvoices: 45,
       recentAlerts: [
-        { id: '1', type: 'warning', message: 'POS Downtown bandwidth usage at 85%', timestamp: new Date().toISOString() },
-        { id: '2', type: 'error', message: 'Client payment overdue - ID #1234', timestamp: new Date(Date.now() - 3600000).toISOString() },
-        { id: '3', type: 'info', message: 'System backup completed successfully', timestamp: new Date(Date.now() - 7200000).toISOString() },
+        { id: '1', type: 'warning', message: i18n.t('POS Downtown bandwidth usage at 85%'), timestamp: new Date().toISOString() },
+        { id: '2', type: 'error', message: i18n.t('Client payment overdue - ID #1234'), timestamp: new Date(Date.now() - 3600000).toISOString() },
+        { id: '3', type: 'info', message: i18n.t('System backup completed successfully'), timestamp: new Date(Date.now() - 7200000).toISOString() },
       ],
     };
   },

@@ -24,6 +24,7 @@ import {
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
+import { useTranslation } from "react-i18next";
 import { useAuditLogs } from "@/hooks/useAuditLog";
 import {
   usePPPoERequests,
@@ -32,8 +33,17 @@ import {
   useCompletePPPoERequest,
   useCreatePPPoERequest,
 } from "@/hooks/usepppoeRequests";
+import {
+  usePackageUpgradeRequests,
+  useApprovePackageUpgradeRequest,
+  useRejectPackageUpgradeRequest,
+} from "@/hooks/usePackageUpgradeRequests";
 import type { AuditLog, PPPoERequest } from "@/types/api.types";
-import { PPPoERequestStatus } from "@/types/api.types";
+import {
+  PPPoERequestStatus,
+  RequestStatus,
+  PackageUpgradeRequest,
+} from "@/types/api.types";
 import {
   Search,
   Filter,
@@ -47,19 +57,23 @@ import {
   FileText,
   Download,
   RefreshCcw,
+  PackagePlus,
 } from "lucide-react";
 
 type RequestActionType = "approve" | "reject" | "complete";
 
 export function LogsRequestsPage() {
+  const { t, i18n } = useTranslation();
   const { toast } = useToast();
+  const isArabic = (i18n.resolvedLanguage || i18n.language).startsWith("ar");
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [activeTab, setActiveTab] = useState("logs");
-  const [actionDialog, setActionDialog] = useState<{
-    type: RequestActionType;
-    request: PPPoERequest;
-  } | null>(null);
+  const [actionDialog, setActionDialog] = useState<
+    | { kind: "pppoe"; type: RequestActionType; request: PPPoERequest }
+    | { kind: "package"; type: "approve" | "reject"; request: PackageUpgradeRequest }
+    | null
+  >(null);
   const [credentialsDialog, setCredentialsDialog] = useState<{
     request: PPPoERequest;
   } | null>(null);
@@ -76,6 +90,12 @@ export function LogsRequestsPage() {
   const rejectMutation = useRejectPPPoERequest();
   const completeMutation = useCompletePPPoERequest();
   const createRequestMutation = useCreatePPPoERequest();
+  const { data: packageRequests = [], isLoading: packageRequestsLoading } =
+    usePackageUpgradeRequests();
+  const approvePackageMutation = useApprovePackageUpgradeRequest();
+  const rejectPackageMutation = useRejectPackageUpgradeRequest();
+  const translateDynamicText = (value?: string | null) =>
+    value ? t(value, { defaultValue: value }) : value;
 
   const filteredLogs = useMemo(() => {
     if (!search.trim()) return auditLogs;
@@ -102,6 +122,11 @@ export function LogsRequestsPage() {
     return pppoeRequests.filter((r) => r.status === statusFilter);
   }, [pppoeRequests, statusFilter]);
 
+  const filteredPackageRequests = useMemo(() => {
+    if (statusFilter === "all") return packageRequests;
+    return packageRequests.filter((r) => r.status === statusFilter);
+  }, [packageRequests, statusFilter]);
+
   const requestStats = useMemo(() => {
     return {
       pending: pppoeRequests.filter(
@@ -119,10 +144,24 @@ export function LogsRequestsPage() {
     };
   }, [pppoeRequests]);
 
+  const packageStats = useMemo(() => {
+    return {
+      pending: packageRequests.filter(
+        (r) => r.status === RequestStatus.PENDING,
+      ).length,
+      approved: packageRequests.filter(
+        (r) => r.status === RequestStatus.APPROVED,
+      ).length,
+      rejected: packageRequests.filter(
+        (r) => r.status === RequestStatus.REJECTED,
+      ).length,
+    };
+  }, [packageRequests]);
+
   const auditColumns = [
     {
       key: "createdAt",
-      header: "Timestamp",
+      header: t("Timestamp"),
       render: (log: AuditLog) => (
         <div className="flex items-center gap-2 min-w-[180px]">
           <div className="p-1.5 rounded-md bg-primary/10">
@@ -145,21 +184,21 @@ export function LogsRequestsPage() {
     },
     {
       key: "user",
-      header: "User",
+      header: t("User"),
       render: (log: AuditLog) => (
         <div className="flex items-center gap-2">
           <div className="p-1.5 rounded-md bg-blue-100 dark:bg-blue-950">
             <User className="h-3.5 w-3.5 text-blue-600 dark:text-blue-400" />
           </div>
           <span className="font-medium text-sm">
-            {log.user?.username || log.userId || "N/A"}
+            {log.user?.username || log.userId || t("N/A")}
           </span>
         </div>
       ),
     },
     {
       key: "action",
-      header: "Action",
+      header: t("Action"),
       render: (log: AuditLog) => (
         <Badge variant="outline" className="font-mono text-xs">
           {log.action}
@@ -168,7 +207,7 @@ export function LogsRequestsPage() {
     },
     {
       key: "entityType",
-      header: "Entity",
+      header: t("Entity"),
       render: (log: AuditLog) => (
         <Badge variant="secondary" className="text-xs">
           {log.entityType}
@@ -177,16 +216,33 @@ export function LogsRequestsPage() {
     },
     {
       key: "details",
-      header: "Details",
-      render: (log: AuditLog) => (
-        <div className="max-w-xs truncate text-xs text-muted-foreground font-mono">
-          {log.details ? JSON.stringify(log.details) : "-"}
-        </div>
-      ),
+      header: t("Details"),
+      render: (log: AuditLog) => {
+        const rawDetails =
+          typeof log.details === "string"
+            ? translateDynamicText(log.details)
+            : log.details &&
+                typeof log.details === "object" &&
+                "message" in (log.details as Record<string, unknown>) &&
+                typeof (log.details as Record<string, unknown>).message ===
+                  "string"
+              ? {
+                  ...(log.details as Record<string, unknown>),
+                  message: translateDynamicText(
+                    (log.details as Record<string, unknown>).message as string,
+                  ),
+                }
+              : log.details;
+        return (
+          <div className="max-w-xs truncate text-xs text-muted-foreground font-mono">
+            {rawDetails ? JSON.stringify(rawDetails) : "-"}
+          </div>
+        );
+      },
     },
     {
       key: "ipAddress",
-      header: "IP Address",
+      header: t("IP Address"),
       render: (log: AuditLog) => (
         <span className="text-xs font-mono text-muted-foreground">
           {log.ipAddress || "-"}
@@ -198,7 +254,7 @@ export function LogsRequestsPage() {
   const requestColumns = [
     {
       key: "client",
-      header: "Client",
+      header: t("Client"),
       render: (req: PPPoERequest) => (
         <div className="flex items-center gap-3 min-w-[180px]">
           <div className="h-10 w-10 rounded-full bg-gradient-to-br from-blue-500 to-purple-500 flex items-center justify-center text-white font-semibold">
@@ -206,10 +262,10 @@ export function LogsRequestsPage() {
           </div>
           <div className="flex flex-col">
             <span className="font-medium text-sm">
-              {req.client?.fullName || "Unknown"}
+              {req.client?.fullName || t("Unknown")}
             </span>
             <span className="text-xs text-muted-foreground">
-              ID: {req.clientId || "N/A"}
+              {t("ID")}: {req.clientId || t("N/A")}
             </span>
           </div>
         </div>
@@ -217,17 +273,19 @@ export function LogsRequestsPage() {
     },
     {
       key: "reason",
-      header: "Reason",
+      header: t("Reason"),
       render: (req: PPPoERequest) => (
         <div className="flex items-start gap-2 max-w-md">
           <FileText className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
-          <span className="text-sm">{req.reason || "No reason provided"}</span>
+          <span className="text-sm">
+            {translateDynamicText(req.reason) || t("No reason provided")}
+          </span>
         </div>
       ),
     },
     {
       key: "status",
-      header: "Status",
+      header: t("Status"),
       render: (req: PPPoERequest) => (
         <div className="flex items-center gap-2">
           {req.status === PPPoERequestStatus.PENDING && (
@@ -248,7 +306,7 @@ export function LogsRequestsPage() {
     },
     {
       key: "createdAt",
-      header: "Requested",
+      header: t("Requested At"),
       render: (req: PPPoERequest) => (
         <div className="flex flex-col">
           <span className="text-sm font-medium">
@@ -262,7 +320,7 @@ export function LogsRequestsPage() {
     },
     {
       key: "actions",
-      header: "Actions",
+      header: t("Actions"),
       render: (req: PPPoERequest) => {
         if (req.status === PPPoERequestStatus.PENDING) {
           return (
@@ -279,7 +337,7 @@ export function LogsRequestsPage() {
                 }}
               >
                 <User className="h-4 w-4" />
-                Edit Credentials
+                {t("Edit Credentials")}
               </Button>
               <Button
                 size="sm"
@@ -287,11 +345,11 @@ export function LogsRequestsPage() {
                 onClick={() => {
                   setNote("");
                   setRejectionReason("");
-                  setActionDialog({ type: "approve", request: req });
+                  setActionDialog({ kind: "pppoe", type: "approve", request: req });
                 }}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                Approve
+                {t("Approve")}
               </Button>
               <Button
                 size="sm"
@@ -300,11 +358,11 @@ export function LogsRequestsPage() {
                 onClick={() => {
                   setNote("");
                   setRejectionReason("");
-                  setActionDialog({ type: "reject", request: req });
+                  setActionDialog({ kind: "pppoe", type: "reject", request: req });
                 }}
               >
                 <XCircle className="h-4 w-4" />
-                Reject
+                {t("Reject")}
               </Button>
             </div>
           );
@@ -324,7 +382,7 @@ export function LogsRequestsPage() {
                 }}
               >
                 <User className="h-4 w-4" />
-                Edit Credentials
+                {t("Edit Credentials")}
               </Button>
               <Button
                 size="sm"
@@ -333,65 +391,220 @@ export function LogsRequestsPage() {
                 onClick={() => {
                   setNote("");
                   setRejectionReason("");
-                  setActionDialog({ type: "complete", request: req });
+                  setActionDialog({ kind: "pppoe", type: "complete", request: req });
                 }}
               >
                 <CheckCircle2 className="h-4 w-4" />
-                Complete
+                {t("Complete")}
               </Button>
             </div>
           );
         }
-        return <span className="text-muted-foreground text-sm">-</span>;
+        return (
+          <span className="text-muted-foreground text-sm">{t("N/A")}</span>
+        );
+      },
+    },
+  ];
+
+  const packageRequestColumns = [
+    {
+      key: "client",
+      header: t("Client"),
+      render: (req: PackageUpgradeRequest) => (
+        <div className="flex items-center gap-3 min-w-[180px]">
+          <div className="h-10 w-10 rounded-full bg-gradient-to-br from-emerald-500 to-sky-500 flex items-center justify-center text-white font-semibold">
+            {(req.requestedByUser?.username || "U")[0].toUpperCase()}
+          </div>
+          <div className="flex flex-col">
+            <span className="font-medium text-sm">
+              {req.requestedByUser?.username || t("Unknown")}
+            </span>
+            <span className="text-xs text-muted-foreground">
+              {t("ID")}: {req.clientId || t("N/A")}
+            </span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      key: "plans",
+      header: t("Plan Change"),
+      render: (req: PackageUpgradeRequest) => (
+        <div className="flex items-start gap-2 max-w-md">
+          <FileText className="h-4 w-4 text-muted-foreground mt-0.5 flex-shrink-0" />
+          <span className="text-sm">
+            {(req.currentPlan?.planName || t("Current plan")) +
+              " -> " +
+              (req.requestedPlan?.planName || t("Requested plan"))}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "status",
+      header: t("Status"),
+      render: (req: PackageUpgradeRequest) => (
+        <div className="flex items-center gap-2">
+          {req.status === RequestStatus.PENDING && (
+            <Clock className="h-4 w-4 text-yellow-500" />
+          )}
+          {req.status === RequestStatus.APPROVED && (
+            <CheckCircle2 className="h-4 w-4 text-green-500" />
+          )}
+          {req.status === RequestStatus.REJECTED && (
+            <XCircle className="h-4 w-4 text-red-500" />
+          )}
+          <StatusBadge status={(req.status || "PENDING").toLowerCase()} />
+        </div>
+      ),
+    },
+    {
+      key: "createdAt",
+      header: t("Requested At"),
+      render: (req: PackageUpgradeRequest) => (
+        <div className="flex flex-col">
+          <span className="text-sm font-medium">
+            {req.requestedAt
+              ? new Date(req.requestedAt).toLocaleDateString()
+              : "-"}
+          </span>
+          <span className="text-xs text-muted-foreground">
+            {req.requestedAt
+              ? new Date(req.requestedAt).toLocaleTimeString()
+              : ""}
+          </span>
+        </div>
+      ),
+    },
+    {
+      key: "actions",
+      header: t("Actions"),
+      render: (req: PackageUpgradeRequest) => {
+        if (req.status === RequestStatus.PENDING) {
+          return (
+            <div className="flex gap-2">
+              <Button
+                size="sm"
+                className="gap-2"
+                onClick={() => {
+                  setNote("");
+                  setRejectionReason("");
+                  setActionDialog({
+                    kind: "package",
+                    type: "approve",
+                    request: req,
+                  });
+                }}
+              >
+                <CheckCircle2 className="h-4 w-4" />
+                {t("Approve")}
+              </Button>
+              <Button
+                size="sm"
+                variant="destructive"
+                className="gap-2"
+                onClick={() => {
+                  setNote("");
+                  setRejectionReason("");
+                  setActionDialog({
+                    kind: "package",
+                    type: "reject",
+                    request: req,
+                  });
+                }}
+              >
+                <XCircle className="h-4 w-4" />
+                {t("Reject")}
+              </Button>
+            </div>
+          );
+        }
+        return (
+          <span className="text-muted-foreground text-sm">{t("N/A")}</span>
+        );
       },
     },
   ];
 
   const handleConfirmAction = async () => {
     if (!actionDialog) return;
-    const { type, request } = actionDialog;
     try {
-      if (type === "approve") {
-        await approveMutation.mutateAsync({
-          id: request.id,
-          data: note ? { note } : undefined,
-        });
-        toast({
-          title: "Request approved",
-          description: "The PPPoE request has been approved successfully.",
-        });
-      } else if (type === "reject") {
-        if (!rejectionReason.trim()) {
-          toast({
-            title: "Rejection reason is required",
-            variant: "destructive",
+      if (actionDialog.kind === "pppoe") {
+        const { type, request } = actionDialog;
+        if (type === "approve") {
+          await approveMutation.mutateAsync({
+            id: request.id,
+            data: note ? { note } : undefined,
           });
-          return;
+          toast({
+            title: t("Request approved"),
+            description: t("The PPPoE request has been approved successfully."),
+          });
+        } else if (type === "reject") {
+          if (!rejectionReason.trim()) {
+            toast({
+              title: t("Rejection reason is required"),
+              variant: "destructive",
+            });
+            return;
+          }
+          await rejectMutation.mutateAsync({
+            id: request.id,
+            data: {
+              rejectionReason: rejectionReason.trim(),
+              note: note || undefined,
+            },
+          });
+          toast({
+            title: t("Request rejected"),
+            description: t("The PPPoE request has been rejected."),
+          });
+        } else if (type === "complete") {
+          await completeMutation.mutateAsync({
+            id: request.id,
+            data: note ? { technicianNote: note } : undefined,
+          });
+          toast({
+            title: t("Request completed"),
+            description: t("The PPPoE request has been marked as completed."),
+          });
         }
-        await rejectMutation.mutateAsync({
-          id: request.id,
-          data: {
-            rejectionReason: rejectionReason.trim(),
-            note: note || undefined,
-          },
-        });
-        toast({
-          title: "Request rejected",
-          description: "The PPPoE request has been rejected.",
-        });
-      } else if (type === "complete") {
-        await completeMutation.mutateAsync({
-          id: request.id,
-          data: note ? { technicianNote: note } : undefined,
-        });
-        toast({
-          title: "Request completed",
-          description: "The PPPoE request has been marked as completed.",
-        });
+      } else if (actionDialog.kind === "package") {
+        const { type, request } = actionDialog;
+        if (type === "approve") {
+          await approvePackageMutation.mutateAsync({
+            id: request.id,
+            data: note ? { note } : undefined,
+          });
+          toast({
+            title: t("Request approved"),
+            description: t("The package upgrade request has been approved."),
+          });
+        } else if (type === "reject") {
+          if (!rejectionReason.trim()) {
+            toast({
+              title: t("Rejection reason is required"),
+              variant: "destructive",
+            });
+            return;
+          }
+          await rejectPackageMutation.mutateAsync({
+            id: request.id,
+            data: {
+              rejectionReason: rejectionReason.trim(),
+              note: note || undefined,
+            },
+          });
+          toast({
+            title: t("Request rejected"),
+            description: t("The package upgrade request has been rejected."),
+          });
+        }
       }
       setActionDialog(null);
     } catch {
-      toast({ title: "Action failed", variant: "destructive" });
+      toast({ title: t("Action failed"), variant: "destructive" });
     }
   };
 
@@ -401,14 +614,14 @@ export function LogsRequestsPage() {
     try {
       if (!newUsername.trim() && !newPassword.trim()) {
         toast({
-          title: "Username or password required",
+          title: t("Username or password required"),
           variant: "destructive",
         });
         return;
       }
       if (!credentialsReason.trim()) {
         toast({
-          title: "Reason is required",
+          title: t("Reason is required"),
           variant: "destructive",
         });
         return;
@@ -420,22 +633,27 @@ export function LogsRequestsPage() {
         newPassword: newPassword.trim() || undefined,
       });
       toast({
-        title: "Request created",
-        description: "A new PPPoE change request has been created.",
+        title: t("Request created"),
+        description: t("A new PPPoE change request has been created."),
       });
       setCredentialsDialog(null);
     } catch {
-      toast({ title: "Create request failed", variant: "destructive" });
+      toast({ title: t("Create request failed"), variant: "destructive" });
     }
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div
+      dir={isArabic ? "rtl" : "ltr"}
+      className={`space-y-6 animate-fade-in ${isArabic ? "text-right" : "text-left"}`}
+    >
       {/* Enhanced Page Header */}
       <div className="flex items-center justify-between">
         <PageHeader
-          title="Logs & Requests"
-          description="Comprehensive audit logging and PPPoE request management system"
+          title={t("Logs & Requests")}
+          description={t(
+            "Comprehensive audit logging and PPPoE request management system",
+          )}
         />
       </div>
 
@@ -447,7 +665,7 @@ export function LogsRequestsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Pending
+                    {t("Pending")}
                   </p>
                   <p className="text-2xl font-bold">{requestStats.pending}</p>
                 </div>
@@ -463,7 +681,7 @@ export function LogsRequestsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Approved
+                    {t("Approved")}
                   </p>
                   <p className="text-2xl font-bold">{requestStats.approved}</p>
                 </div>
@@ -479,7 +697,7 @@ export function LogsRequestsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Rejected
+                    {t("Rejected")}
                   </p>
                   <p className="text-2xl font-bold">{requestStats.rejected}</p>
                 </div>
@@ -495,7 +713,7 @@ export function LogsRequestsPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-sm font-medium text-muted-foreground">
-                    Completed
+                    {t("Completed")}
                   </p>
                   <p className="text-2xl font-bold">{requestStats.completed}</p>
                 </div>
@@ -515,24 +733,49 @@ export function LogsRequestsPage() {
         onValueChange={setActiveTab}
         className="space-y-6"
       >
-        <TabsList className="grid w-full max-w-md grid-cols-2 h-12">
-          <TabsTrigger value="logs" className="gap-2">
-            <Activity className="h-4 w-4" />
-            Audit Logs
-          </TabsTrigger>
-          <TabsTrigger value="requests" className="gap-2">
-            <FileText className="h-4 w-4" />
-            PPPoE Requests
-            {requestStats.pending > 0 && (
-              <Badge
-                variant="destructive"
-                className="ml-2 h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs"
-              >
-                {requestStats.pending}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
+        <div
+          className={`${isArabic ? "flex justify-end" : "flex justify-start"}`}
+        >
+          <TabsList className="grid w-full max-w-md grid-cols-3 h-12">
+            <TabsTrigger
+              value="logs"
+              className={`gap-2 ${isArabic ? "flex-row-reverse" : ""}`}
+            >
+              <Activity className="h-4 w-4" />
+              {t("Audit Logs")}
+            </TabsTrigger>
+            <TabsTrigger
+              value="requests"
+              className={`gap-2 ${isArabic ? "flex-row-reverse" : ""}`}
+            >
+              <FileText className="h-4 w-4" />
+              {t("PPPoE Requests")}
+              {requestStats.pending > 0 && (
+                <Badge
+                  variant="destructive"
+                  className={`${isArabic ? "mr-2" : "ml-2"} h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs`}
+                >
+                  {requestStats.pending}
+                </Badge>
+              )}
+            </TabsTrigger>
+            <TabsTrigger
+              value="packageRequests"
+              className={`gap-2 ${isArabic ? "flex-row-reverse" : ""}`}
+            >
+              <PackagePlus className="h-4 w-4" />
+              {t("Package Requests")}
+              {packageStats.pending > 0 && (
+                <Badge
+                  variant="destructive"
+                  className={`${isArabic ? "mr-2" : "ml-2"} h-5 w-5 rounded-full p-0 flex items-center justify-center text-xs`}
+                >
+                  {packageStats.pending}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+        </div>
 
         {/* Audit Logs Tab */}
         <TabsContent value="logs" className="space-y-4">
@@ -540,37 +783,55 @@ export function LogsRequestsPage() {
             <CardHeader className="border-b bg-muted/30">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <Activity className="h-5 w-5" />
-                System Audit Logs
+                {t("System Audit Logs")}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
               {/* Enhanced Search */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Search
+                    className={`absolute top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground ${
+                      isArabic ? "right-3" : "left-3"
+                    }`}
+                  />
                   <Input
-                    placeholder="Search by user, action, entity, IP address..."
+                    placeholder={t(
+                      "Search by user, action, entity, IP address...",
+                    )}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
-                    className="pl-10"
+                    className={
+                      isArabic
+                        ? "pr-10 text-right placeholder:text-right"
+                        : "pl-10 text-left placeholder:text-left"
+                    }
                   />
                 </div>
               </div>
 
               {/* Table */}
-              <div className="border rounded-lg overflow-hidden">
+              <div
+                dir={isArabic ? "rtl" : "ltr"}
+                className={`border rounded-lg overflow-hidden ${
+                  isArabic ? "text-right" : "text-left"
+                }`}
+              >
                 <DataTable
                   columns={auditColumns}
                   data={filteredLogs}
                   isLoading={logsLoading}
-                  emptyMessage="No audit logs found"
+                  emptyMessage={t("No audit logs found")}
                 />
               </div>
 
               {/* Results count */}
               <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
                 <span>
-                  Showing {filteredLogs.length} of {auditLogs.length} logs
+                  {t("Showing {{shown}} of {{total}} logs", {
+                    shown: filteredLogs.length,
+                    total: auditLogs.length,
+                  })}
                 </span>
               </div>
             </CardContent>
@@ -583,47 +844,57 @@ export function LogsRequestsPage() {
             <CardHeader className="border-b bg-muted/30">
               <CardTitle className="flex items-center gap-2 text-lg">
                 <FileText className="h-5 w-5" />
-                PPPoE Connection Requests
+                {t("PPPoE Connection Requests")}
               </CardTitle>
             </CardHeader>
             <CardContent className="pt-6 space-y-4">
               {/* Enhanced Filter */}
               <div className="flex flex-col sm:flex-row gap-3">
                 <div className="relative flex-1">
-                  <Filter className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                  <Filter
+                    className={`absolute top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground ${
+                      isArabic ? "right-3" : "left-3"
+                    }`}
+                  />
                   <Select value={statusFilter} onValueChange={setStatusFilter}>
-                    <SelectTrigger className="pl-10">
-                      <SelectValue placeholder="Filter by status" />
+                    <SelectTrigger
+                      className={
+                        isArabic
+                          ? "pr-10 justify-end text-right"
+                          : "pl-10 justify-start text-left"
+                      }
+                    >
+                      <SelectValue placeholder={t("Filter by status")} />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-gray-400" />
-                          All Status
+                          {t("All Status")}
                         </div>
                       </SelectItem>
                       <SelectItem value={PPPoERequestStatus.PENDING}>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-yellow-400" />
-                          Pending
+                          {t("Pending")}
                         </div>
                       </SelectItem>
                       <SelectItem value={PPPoERequestStatus.APPROVED}>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-green-400" />
-                          Approved
+                          {t("Approved")}
                         </div>
                       </SelectItem>
                       <SelectItem value={PPPoERequestStatus.REJECTED}>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-red-400" />
-                          Rejected
+                          {t("Rejected")}
                         </div>
                       </SelectItem>
                       <SelectItem value={PPPoERequestStatus.COMPLETED}>
                         <div className="flex items-center gap-2">
                           <div className="h-2 w-2 rounded-full bg-blue-400" />
-                          Completed
+                          {t("Completed")}
                         </div>
                       </SelectItem>
                     </SelectContent>
@@ -632,20 +903,113 @@ export function LogsRequestsPage() {
               </div>
 
               {/* Table */}
-              <div className="border rounded-lg overflow-hidden">
+              <div
+                dir={isArabic ? "rtl" : "ltr"}
+                className={`border rounded-lg overflow-hidden ${
+                  isArabic ? "text-right" : "text-left"
+                }`}
+              >
                 <DataTable
                   columns={requestColumns}
                   data={filteredRequests}
                   isLoading={requestsLoading}
-                  emptyMessage="No PPPoE requests found"
+                  emptyMessage={t("No PPPoE requests found")}
                 />
               </div>
 
               {/* Results count */}
               <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
                 <span>
-                  Showing {filteredRequests.length} of {pppoeRequests.length}{" "}
-                  requests
+                  {t("Showing {{shown}} of {{total}} requests", {
+                    shown: filteredRequests.length,
+                    total: pppoeRequests.length,
+                  })}
+                </span>
+              </div>
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        {/* Package Upgrade Requests Tab */}
+        <TabsContent value="packageRequests" className="space-y-4">
+          <Card className="shadow-lg border-2">
+            <CardHeader className="border-b bg-muted/30">
+              <CardTitle className="flex items-center gap-2 text-lg">
+                <PackagePlus className="h-5 w-5" />
+                {t("Package Upgrade Requests")}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="pt-6 space-y-4">
+              {/* Enhanced Filter */}
+              <div className="flex flex-col sm:flex-row gap-3">
+                <div className="relative flex-1">
+                  <Filter
+                    className={`absolute top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground ${
+                      isArabic ? "right-3" : "left-3"
+                    }`}
+                  />
+                  <Select value={statusFilter} onValueChange={setStatusFilter}>
+                    <SelectTrigger
+                      className={
+                        isArabic
+                          ? "pr-10 justify-end text-right"
+                          : "pl-10 justify-start text-left"
+                      }
+                    >
+                      <SelectValue placeholder={t("Filter by status")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-gray-400" />
+                          {t("All Status")}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value={RequestStatus.PENDING}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-yellow-400" />
+                          {t("Pending")}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value={RequestStatus.APPROVED}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-green-400" />
+                          {t("Approved")}
+                        </div>
+                      </SelectItem>
+                      <SelectItem value={RequestStatus.REJECTED}>
+                        <div className="flex items-center gap-2">
+                          <div className="h-2 w-2 rounded-full bg-red-400" />
+                          {t("Rejected")}
+                        </div>
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+              </div>
+
+              {/* Table */}
+              <div
+                dir={isArabic ? "rtl" : "ltr"}
+                className={`border rounded-lg overflow-hidden ${
+                  isArabic ? "text-right" : "text-left"
+                }`}
+              >
+                <DataTable
+                  columns={packageRequestColumns}
+                  data={filteredPackageRequests}
+                  isLoading={packageRequestsLoading}
+                  emptyMessage={t("No package requests found")}
+                />
+              </div>
+
+              {/* Results count */}
+              <div className="flex items-center justify-between text-sm text-muted-foreground px-1">
+                <span>
+                  {t("Showing {{shown}} of {{total}} requests", {
+                    shown: filteredPackageRequests.length,
+                    total: packageRequests.length,
+                  })}
                 </span>
               </div>
             </CardContent>
@@ -655,7 +1019,7 @@ export function LogsRequestsPage() {
 
       {/* Enhanced Action Dialog */}
       <Dialog open={!!actionDialog} onOpenChange={() => setActionDialog(null)}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent dir={isArabic ? "rtl" : "ltr"} className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3">
               {actionDialog?.type === "approve" && (
@@ -675,17 +1039,19 @@ export function LogsRequestsPage() {
               )}
               <div>
                 <DialogTitle>
-                  {actionDialog?.type === "approve" && "Approve Request"}
-                  {actionDialog?.type === "reject" && "Reject Request"}
-                  {actionDialog?.type === "complete" && "Complete Request"}
+                  {actionDialog?.type === "approve" && t("Approve Request")}
+                  {actionDialog?.type === "reject" && t("Reject Request")}
+                  {actionDialog?.type === "complete" && t("Complete Request")}
                 </DialogTitle>
                 <DialogDescription>
                   {actionDialog?.type === "approve" &&
-                    "This will approve the PPPoE connection request."}
+                    (actionDialog?.kind === "package"
+                      ? t("This will approve the package upgrade request.")
+                      : t("This will approve the PPPoE connection request."))}
                   {actionDialog?.type === "reject" &&
-                    "Please provide a reason for rejecting this request."}
+                    t("Please provide a reason for rejecting this request.")}
                   {actionDialog?.type === "complete" &&
-                    "Mark this request as completed."}
+                    t("Mark this request as completed.")}
                 </DialogDescription>
               </div>
             </div>
@@ -697,13 +1063,16 @@ export function LogsRequestsPage() {
               <div className="flex items-center gap-2 text-sm">
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">
-                  {actionDialog.request.client?.fullName || "Unknown Client"}
+                  {actionDialog.kind === "pppoe"
+                    ? actionDialog.request.client?.fullName || t("Unknown Client")
+                    : actionDialog.request.requestedByUser?.username || t("Unknown Client")}
                 </span>
               </div>
               <div className="flex items-start gap-2 text-sm">
                 <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <span className="text-muted-foreground">
-                  {actionDialog.request.reason || "No reason provided"}
+                  {translateDynamicText(actionDialog.request.reason) ||
+                    t("No reason provided")}
                 </span>
               </div>
             </div>
@@ -714,12 +1083,14 @@ export function LogsRequestsPage() {
               <div className="space-y-2">
                 <Label className="flex items-center gap-2">
                   <AlertCircle className="h-4 w-4 text-red-500" />
-                  Rejection Reason *
+                  {t("Rejection Reason")} *
                 </Label>
                 <Textarea
                   value={rejectionReason}
                   onChange={(e) => setRejectionReason(e.target.value)}
-                  placeholder="Please provide a clear reason for rejection..."
+                  placeholder={t(
+                    "Please provide a clear reason for rejection...",
+                  )}
                   className="min-h-[100px]"
                 />
               </div>
@@ -727,13 +1098,13 @@ export function LogsRequestsPage() {
             <div className="space-y-2">
               <Label>
                 {actionDialog?.type === "complete"
-                  ? "Technician Note (optional)"
-                  : "Additional Note (optional)"}
+                  ? t("Technician Note (optional)")
+                  : t("Additional Note (optional)")}
               </Label>
               <Textarea
                 value={note}
                 onChange={(e) => setNote(e.target.value)}
-                placeholder="Add any additional notes or comments..."
+                placeholder={t("Add any additional notes or comments...")}
                 className="min-h-[80px]"
               />
             </div>
@@ -743,7 +1114,7 @@ export function LogsRequestsPage() {
                 className="flex-1"
                 onClick={() => setActionDialog(null)}
               >
-                Cancel
+                {t("Cancel")}
               </Button>
               <Button
                 className="flex-1 gap-2"
@@ -762,12 +1133,12 @@ export function LogsRequestsPage() {
                 completeMutation.isPending ? (
                   <>
                     <RefreshCcw className="h-4 w-4 animate-spin" />
-                    Processing...
+                    {t("Processing...")}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="h-4 w-4" />
-                    Confirm
+                    {t("Confirm")}
                   </>
                 )}
               </Button>
@@ -780,16 +1151,16 @@ export function LogsRequestsPage() {
         open={!!credentialsDialog}
         onOpenChange={() => setCredentialsDialog(null)}
       >
-        <DialogContent className="sm:max-w-md">
+        <DialogContent dir={isArabic ? "rtl" : "ltr"} className="sm:max-w-md">
           <DialogHeader>
             <div className="flex items-center gap-3">
               <div className="p-3 rounded-full bg-blue-100 dark:bg-blue-950">
                 <User className="h-6 w-6 text-blue-600 dark:text-blue-400" />
               </div>
               <div>
-                <DialogTitle>Create PPPoE Change Request</DialogTitle>
+                <DialogTitle>{t("Create PPPoE Change Request")}</DialogTitle>
                 <DialogDescription>
-                  Submit a new PPPoE change request for this client.
+                  {t("Submit a new PPPoE change request for this client.")}
                 </DialogDescription>
               </div>
             </div>
@@ -801,13 +1172,14 @@ export function LogsRequestsPage() {
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">
                   {credentialsDialog.request.client?.fullName ||
-                    "Unknown Client"}
+                    t("Unknown Client")}
                 </span>
               </div>
               <div className="flex items-start gap-2 text-sm">
                 <FileText className="h-4 w-4 text-muted-foreground mt-0.5" />
                 <span className="text-muted-foreground">
-                  {credentialsDialog.request.reason || "No reason provided"}
+                  {translateDynamicText(credentialsDialog.request.reason) ||
+                    t("No reason provided")}
                 </span>
               </div>
             </div>
@@ -815,28 +1187,28 @@ export function LogsRequestsPage() {
 
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label>Reason *</Label>
+              <Label>{t("Reason")} *</Label>
               <Textarea
                 value={credentialsReason}
                 onChange={(e) => setCredentialsReason(e.target.value)}
-                placeholder="Provide a reason for this change..."
+                placeholder={t("Provide a reason for this change...")}
                 className="min-h-[80px]"
               />
             </div>
             <div className="space-y-2">
-              <Label>New Username</Label>
+              <Label>{t("New Username")}</Label>
               <Input
                 value={newUsername}
                 onChange={(e) => setNewUsername(e.target.value)}
-                placeholder="Enter PPPoE username"
+                placeholder={t("Enter PPPoE username")}
               />
             </div>
             <div className="space-y-2">
-              <Label>New Password</Label>
+              <Label>{t("New Password")}</Label>
               <Input
                 value={newPassword}
                 onChange={(e) => setNewPassword(e.target.value)}
-                placeholder="Enter PPPoE password"
+                placeholder={t("Enter PPPoE password")}
                 type="password"
               />
             </div>
@@ -846,7 +1218,7 @@ export function LogsRequestsPage() {
                 className="flex-1"
                 onClick={() => setCredentialsDialog(null)}
               >
-                Cancel
+                {t("Cancel")}
               </Button>
               <Button
                 className="flex-1 gap-2"
@@ -856,12 +1228,12 @@ export function LogsRequestsPage() {
                 {createRequestMutation.isPending ? (
                   <>
                     <RefreshCcw className="h-4 w-4 animate-spin" />
-                    Saving...
+                    {t("Saving...")}
                   </>
                 ) : (
                   <>
                     <CheckCircle2 className="h-4 w-4" />
-                    Save
+                    {t("Save")}
                   </>
                 )}
               </Button>

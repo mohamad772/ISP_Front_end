@@ -21,8 +21,10 @@ import {
   Sparkles,
 } from "lucide-react";
 import { useStore } from "@/store/auth-store";
+import { useTranslation } from "react-i18next";
 
 export function ProfilePage() {
+  const { t } = useTranslation();
   const { user } = useStore();
   const { toast } = useToast();
   const [isChangingPassword, setIsChangingPassword] = useState(false);
@@ -35,7 +37,7 @@ export function ProfilePage() {
   const handleChangePassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (passwords.new !== passwords.confirm) {
-      toast({ title: "Passwords do not match", variant: "destructive" });
+      toast({ title: t("Passwords do not match"), variant: "destructive" });
       return;
     }
 
@@ -43,12 +45,12 @@ export function ProfilePage() {
     try {
       // TODO: Implement password change API call
       // await changePassword(passwords.current, passwords.new);
-      toast({ title: "Password changed successfully" });
+      toast({ title: t("Password changed successfully") });
       setPasswords({ current: "", new: "", confirm: "" });
     } catch {
       toast({
-        title: "Failed to change password",
-        description: "Check your current password",
+        title: t("Failed to change password"),
+        description: t("Check your current password"),
         variant: "destructive",
       });
     } finally {
@@ -57,7 +59,7 @@ export function ProfilePage() {
   };
 
   if (!user) {
-    return <div>Not authenticated</div>;
+    return <div>{t("Not authenticated")}</div>;
   }
 
   return (
@@ -80,8 +82,8 @@ export function ProfilePage() {
 
       <div className="relative z-10">
         <PageHeader
-          title="My Profile"
-          description="Manage your account settings"
+          title={t("My Profile")}
+          description={t("Manage your account settings")}
         />
       </div>
 
@@ -107,7 +109,7 @@ export function ProfilePage() {
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
               </div>
               <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                Account Information
+                {t("Account Information")}
               </span>
             </CardTitle>
           </CardHeader>
@@ -164,7 +166,7 @@ export function ProfilePage() {
 
                 <div className="flex-1 min-w-0 relative z-10">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 group-hover/item:text-primary transition-colors duration-300">
-                    Email
+                    {t("Email")}
                   </p>
                   <p className="font-bold text-base truncate">{user.email}</p>
                 </div>
@@ -180,7 +182,7 @@ export function ProfilePage() {
 
                 <div className="flex-1 min-w-0 relative z-10">
                   <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 group-hover/item:text-primary transition-colors duration-300">
-                    Role
+                    {t("Role")}
                   </p>
                   <p className="font-bold text-base capitalize">
                     {user.role.replace("_", " ").toLowerCase()}
@@ -198,8 +200,8 @@ export function ProfilePage() {
                   </div>
 
                   <div className="flex-1 min-w-0 relative z-10">
-                    <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 group-hover/item:text-primary transition-colors duration-300">
-                      Assigned POS
+                  <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wider mb-1 group-hover/item:text-primary transition-colors duration-300">
+                      {t("Assigned POS")}
                     </p>
                     <p className="font-bold text-base">{user.pos.name}</p>
                   </div>
@@ -210,7 +212,7 @@ export function ProfilePage() {
             {user.capabilities && user.capabilities.length > 0 && (
               <div className="animate-in fade-in slide-in-from-bottom duration-700 delay-550">
                 <p className="text-xs font-bold text-muted-foreground uppercase tracking-widest mb-4">
-                  Capabilities
+                  {t("Capabilities")}
                 </p>
                 <div className="flex flex-wrap gap-2">
                   {user.capabilities.map((cap, i) => (
@@ -248,11 +250,11 @@ export function ProfilePage() {
                 <div className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full" />
               </div>
               <span className="bg-gradient-to-r from-foreground to-foreground/70 bg-clip-text">
-                Change Password
+                {t("Change Password")}
               </span>
             </CardTitle>
             <CardDescription className="text-base">
-              Update your password to keep your account secure
+              {t("Update your password to keep your account secure")}
             </CardDescription>
           </CardHeader>
 
@@ -260,7 +262,7 @@ export function ProfilePage() {
             <form onSubmit={handleChangePassword} className="space-y-6">
               <div className="space-y-2 animate-in slide-in-from-right duration-700 delay-300">
                 <Label htmlFor="current" className="text-sm font-semibold">
-                  Current Password
+                  {t("Current Password")}
                 </Label>
                 <div className="relative group/input">
                   <Input
@@ -280,7 +282,7 @@ export function ProfilePage() {
 
               <div className="space-y-2 animate-in slide-in-from-right duration-700 delay-350">
                 <Label htmlFor="new" className="text-sm font-semibold">
-                  New Password
+                  {t("New Password")}
                 </Label>
                 <div className="relative group/input">
                   <Input
@@ -300,7 +302,7 @@ export function ProfilePage() {
 
               <div className="space-y-2 animate-in slide-in-from-right duration-700 delay-400">
                 <Label htmlFor="confirm" className="text-sm font-semibold">
-                  Confirm New Password
+                  {t("Confirm New Password")}
                 </Label>
                 <div className="relative group/input">
                   <Input
@@ -330,10 +332,10 @@ export function ProfilePage() {
                     {isChangingPassword ? (
                       <>
                         <Loader2 className="w-5 h-5 mr-2 animate-spin" />
-                        Changing...
+                        {t("Changing...")}
                       </>
                     ) : (
-                      "Change Password"
+                      t("Change Password")
                     )}
                   </span>
                 </Button>

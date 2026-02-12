@@ -25,8 +25,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
+import { isValidPhone10, normalizePhone10 } from "@/utils/phone";
+import { useTranslation } from "react-i18next";
 import {
   ArrowLeft,
+  ArrowRight,
   Edit,
   Ban,
   CheckCircle,
@@ -66,6 +69,7 @@ import { useCreatePayment } from "@/hooks/usepayments";
 import { useServicePlans } from "@/hooks/useServicePlan";
 
 export function ClientDetailPage() {
+  const { t, i18n } = useTranslation();
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { toast } = useToast();
@@ -152,9 +156,9 @@ export function ClientDetailPage() {
           reasonDetails: "Manual suspension from client detail page",
         },
       });
-      toast({ title: "Client suspended" });
+      toast({ title: t("Client suspended") });
     } catch {
-      toast({ title: "Failed to suspend client", variant: "destructive" });
+      toast({ title: t("Failed to suspend client"), variant: "destructive" });
     }
   };
 
@@ -162,9 +166,12 @@ export function ClientDetailPage() {
     if (!client) return;
     try {
       await activateMutation.mutateAsync(client.id);
-      toast({ title: "Client reactivated" });
+      toast({ title: t("Client reactivated") });
     } catch {
-      toast({ title: "Failed to reactivate client", variant: "destructive" });
+      toast({
+        title: t("Failed to reactivate client"),
+        variant: "destructive",
+      });
     }
   };
 
@@ -182,7 +189,7 @@ export function ClientDetailPage() {
   }
 
   if (!client) {
-    return <div>Client not found</div>;
+    return <div>{t("Client not found")}</div>;
   }
 
   const availableStaticIPs = client.staticIp
@@ -199,6 +206,24 @@ export function ClientDetailPage() {
     : staticIPs;
 
   const activeSubscription = subscriptions.find((s) => s.status === "ACTIVE");
+  const isArabic = (i18n.resolvedLanguage || i18n.language).startsWith("ar");
+  const dialogDir = isArabic ? "rtl" : "ltr";
+  const translateApiText = (value?: string | null) =>
+    value ? t(value, { defaultValue: value }) : value;
+  const BackIcon = isArabic ? ArrowRight : ArrowLeft;
+  const statusLabelMap: Record<string, string> = {
+    ACTIVE: t("Active"),
+    INACTIVE: t("Inactive"),
+    SUSPENDED: t("Suspended"),
+    TERMINATED: t("Terminated"),
+    PENDING: t("Pending"),
+  };
+  const getConnectionTypeLabel = (connectionType: ConnectionType) => {
+    if (connectionType === ConnectionType.DYNAMIC) return t("Dynamic IP");
+    if (connectionType === ConnectionType.STATIC) return t("Static IP");
+    if (connectionType === ConnectionType.PPPOE) return t("PPPoE");
+    return connectionType;
+  };
   const balance = invoices.reduce((sum, inv) => {
     const amount = Number(inv.amount) || 0;
     const paid = Number(inv.totalPaid) || 0;
@@ -206,27 +231,27 @@ export function ClientDetailPage() {
   }, 0);
 
   const invoiceColumns = [
-    { key: "invoiceNumber", header: "Invoice #" },
+    { key: "invoiceNumber", header: t("Invoice #") },
     {
       key: "amount",
-      header: "Amount",
+      header: t("Amount"),
       render: (i: Invoice) => `$${Number(i.amount).toFixed(2)}`,
     },
     {
       key: "dueDate",
-      header: "Due Date",
+      header: t("Due Date"),
       render: (i: Invoice) => new Date(i.dueDate).toLocaleDateString(),
     },
     {
       key: "status",
-      header: "Status",
+      header: t("Status"),
       render: (i: Invoice) => (
         <StatusBadge status={getInvoiceStatus(i).toLowerCase()} />
       ),
     },
     {
       key: "actions",
-      header: "Actions",
+      header: t("Actions"),
       render: (i: Invoice) => (
         <Button
           size="sm"
@@ -234,7 +259,7 @@ export function ClientDetailPage() {
           disabled={isInvoicePaid(i) || isCreatingPayment}
           onClick={() => handleQuickPay(i)}
         >
-          Pay
+          {t("Pay")}
         </Button>
       ),
     },
@@ -243,23 +268,23 @@ export function ClientDetailPage() {
   const suspensionColumns = [
     {
       key: "suspendedAt",
-      header: "Suspended At",
+      header: t("Suspended At"),
       render: (h: SuspensionHistory) =>
         new Date(h.suspendedAt).toLocaleString(),
     },
     {
       key: "reason",
-      header: "Reason",
+      header: t("Reason"),
       render: (h: SuspensionHistory) => h.suspensionReason.replace("_", " "),
     },
-    { key: "reasonDetails", header: "Details" },
+    { key: "reasonDetails", header: t("Details") },
     {
       key: "reactivatedAt",
-      header: "Reactivated At",
+      header: t("Reactivated At"),
       render: (h: SuspensionHistory) =>
         h.reactivatedAt
           ? new Date(h.reactivatedAt).toLocaleString()
-          : "Still suspended",
+          : t("Still suspended"),
     },
   ];
 
@@ -267,7 +292,7 @@ export function ClientDetailPage() {
     setEditForm({
       fullName: client.fullName || "",
       email: client.email || "",
-      phone: client.phone || "",
+      phone: normalizePhone10(client.phone || ""),
       address: client.address || "",
       connectionType: client.connectionType,
       staticIpId: client.staticIp?.id || "",
@@ -286,7 +311,7 @@ export function ClientDetailPage() {
       !editForm.staticIpId
     ) {
       toast({
-        title: "Static IP is required for STATIC connection type",
+        title: t("Static IP is required for STATIC connection type"),
         variant: "destructive",
       });
       return;
@@ -296,7 +321,14 @@ export function ClientDetailPage() {
       (!editForm.pppoeUsername.trim() || !editForm.pppoePassword.trim())
     ) {
       toast({
-        title: "PPPoE username and password are required",
+        title: t("PPPoE username and password are required"),
+        variant: "destructive",
+      });
+      return;
+    }
+    if (!isValidPhone10(editForm.phone)) {
+      toast({
+        title: t("Phone number must be 10 digits"),
         variant: "destructive",
       });
       return;
@@ -340,10 +372,10 @@ export function ClientDetailPage() {
         });
       }
 
-      toast({ title: "Client updated" });
+      toast({ title: t("Client updated") });
       setIsEditOpen(false);
     } catch {
-      toast({ title: "Failed to update client", variant: "destructive" });
+      toast({ title: t("Failed to update client"), variant: "destructive" });
     } finally {
       setIsSaving(false);
     }
@@ -386,7 +418,7 @@ export function ClientDetailPage() {
       !invoiceForm.issueDate
     ) {
       toast({
-        title: "Amount, issue date, and due date are required",
+        title: t("Amount, issue date, and due date are required"),
         variant: "destructive",
       });
       return;
@@ -404,10 +436,10 @@ export function ClientDetailPage() {
             ? invoiceForm.subscriptionId
             : undefined,
       });
-      toast({ title: "Invoice created" });
+      toast({ title: t("Invoice created") });
       setIsInvoiceOpen(false);
     } catch {
-      toast({ title: "Failed to create invoice", variant: "destructive" });
+      toast({ title: t("Failed to create invoice"), variant: "destructive" });
     } finally {
       setIsCreatingInvoice(false);
     }
@@ -417,7 +449,7 @@ export function ClientDetailPage() {
     if (isCreatingPayment) return;
     if (paymentForm.invoiceId === "none") {
       toast({
-        title: "Please select an invoice",
+        title: t("Please select an invoice"),
         variant: "destructive",
       });
       return;
@@ -425,7 +457,7 @@ export function ClientDetailPage() {
     const amountPaid = Number(paymentForm.amountPaid);
     if (!Number.isFinite(amountPaid) || amountPaid <= 0) {
       toast({
-        title: "Amount paid must be a positive number",
+        title: t("Amount paid must be a positive number"),
         variant: "destructive",
       });
       return;
@@ -439,10 +471,10 @@ export function ClientDetailPage() {
         paymentReference: paymentForm.paymentReference || undefined,
         notes: paymentForm.notes || undefined,
       });
-      toast({ title: "Payment recorded" });
+      toast({ title: t("Payment recorded") });
       setIsPaymentOpen(false);
     } catch {
-      toast({ title: "Failed to record payment", variant: "destructive" });
+      toast({ title: t("Failed to record payment"), variant: "destructive" });
     } finally {
       setIsCreatingPayment(false);
     }
@@ -458,7 +490,7 @@ export function ClientDetailPage() {
     if (isCreatingPayment) return;
     const remaining = getRemainingAmount(invoice);
     if (remaining <= 0) {
-      toast({ title: "Invoice is already paid" });
+      toast({ title: t("Invoice is already paid") });
       return;
     }
     try {
@@ -470,9 +502,9 @@ export function ClientDetailPage() {
         paymentReference: "quick_pay",
         notes: "Quick pay from invoice list",
       });
-      toast({ title: "Payment recorded" });
+      toast({ title: t("Payment recorded") });
     } catch {
-      toast({ title: "Failed to record payment", variant: "destructive" });
+      toast({ title: t("Failed to record payment"), variant: "destructive" });
     } finally {
       setIsCreatingPayment(false);
     }
@@ -489,14 +521,14 @@ export function ClientDetailPage() {
   const handleUpgrade = async () => {
     if (!activeSubscription) {
       toast({
-        title: "No active subscription to upgrade",
+        title: t("No active subscription to upgrade"),
         variant: "destructive",
       });
       return;
     }
     if (upgradeForm.planId === "none") {
       toast({
-        title: "Please select a plan",
+        title: t("Please select a plan"),
         variant: "destructive",
       });
       return;
@@ -511,10 +543,10 @@ export function ClientDetailPage() {
           effectiveDate: upgradeForm.effectiveDate || undefined,
         },
       });
-      toast({ title: "Plan upgraded" });
+      toast({ title: t("Plan upgraded") });
       setIsUpgradeOpen(false);
     } catch {
-      toast({ title: "Failed to upgrade plan", variant: "destructive" });
+      toast({ title: t("Failed to upgrade plan"), variant: "destructive" });
     } finally {
       setIsUpgrading(false);
     }
@@ -533,7 +565,7 @@ export function ClientDetailPage() {
     if (!id) return;
     if (subscribeForm.planId === "none") {
       toast({
-        title: "Please select a plan",
+        title: t("Please select a plan"),
         variant: "destructive",
       });
       return;
@@ -541,7 +573,7 @@ export function ClientDetailPage() {
     const selectedPlan = servicePlans.find((p) => p.id === subscribeForm.planId);
     if (selectedPlan && selectedPlan.serviceType !== ServiceType.PREPAID) {
       toast({
-        title: "Only PREPAID plans are allowed",
+        title: t("Only PREPAID plans are allowed"),
         variant: "destructive",
       });
       return;
@@ -555,40 +587,49 @@ export function ClientDetailPage() {
         startDate: subscribeForm.startDate || undefined,
         isAutoRenewed: subscribeForm.autoRenew,
       });
-      toast({ title: "Subscription created" });
+      toast({ title: t("Subscription created") });
       setIsSubscribeOpen(false);
     } catch {
-      toast({ title: "Failed to create subscription", variant: "destructive" });
+      toast({
+        title: t("Failed to create subscription"),
+        variant: "destructive",
+      });
     } finally {
       setIsSubscribing(false);
     }
   };
 
   return (
-    <div className="space-y-6 animate-fade-in">
+    <div
+      dir={isArabic ? "rtl" : "ltr"}
+      className={`space-y-6 animate-fade-in ${isArabic ? "text-right" : "text-left"}`}
+    >
       <PageHeader
         title={client.fullName}
-        description={`Status: ${client.status.charAt(0) + client.status.slice(1).toLowerCase()}`}
+        description={`${t("Status")}: ${statusLabelMap[client.status] || client.status}`}
         actions={
-          <div className="flex flex-wrap gap-2">
+          <div className={`flex flex-wrap gap-2 ${isArabic ? "flex-row-reverse" : ""}`}>
             <Button variant="outline" onClick={() => navigate("/clients")}>
-              <ArrowLeft className="w-4 h-4 mr-2" />
-              Back
+              <BackIcon className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+              {t("Back")}
             </Button>
             <Dialog open={isEditOpen} onOpenChange={setIsEditOpen}>
               <DialogTrigger asChild>
                 <Button variant="outline" onClick={openEdit}>
-                  <Edit className="w-4 h-4 mr-2" />
-                  Edit
+                  <Edit className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+                  {t("Edit")}
                 </Button>
               </DialogTrigger>
-              <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
+              <DialogContent
+                dir={dialogDir}
+                className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto"
+              >
                 <DialogHeader>
-                  <DialogTitle>Edit Client</DialogTitle>
+                  <DialogTitle>{t("Edit Client")}</DialogTitle>
                 </DialogHeader>
                 <div className="space-y-4 py-2">
                   <div className="space-y-2">
-                    <Label>Full Name</Label>
+                    <Label>{t("Full Name")}</Label>
                     <Input
                       value={editForm.fullName}
                       onChange={(e) =>
@@ -597,7 +638,7 @@ export function ClientDetailPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Email</Label>
+                    <Label>{t("Email")}</Label>
                     <Input
                       type="email"
                       value={editForm.email}
@@ -607,16 +648,21 @@ export function ClientDetailPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Phone</Label>
+                    <Label>{t("Phone")}</Label>
                     <Input
                       value={editForm.phone}
                       onChange={(e) =>
-                        setEditForm({ ...editForm, phone: e.target.value })
+                        setEditForm({
+                          ...editForm,
+                          phone: normalizePhone10(e.target.value),
+                        })
                       }
+                      inputMode="numeric"
+                      maxLength={10}
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Address</Label>
+                    <Label>{t("Address")}</Label>
                     <Input
                       value={editForm.address}
                       onChange={(e) =>
@@ -625,7 +671,7 @@ export function ClientDetailPage() {
                     />
                   </div>
                   <div className="space-y-2">
-                    <Label>Connection Type</Label>
+                    <Label>{t("Connection Type")}</Label>
                     <Select
                       value={editForm.connectionType}
                       onValueChange={(v) =>
@@ -648,18 +694,18 @@ export function ClientDetailPage() {
                       }
                     >
                       <SelectTrigger>
-                        <SelectValue />
+                        <SelectValue placeholder={t("Select POS")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="DYNAMIC">Dynamic IP</SelectItem>
-                        <SelectItem value="STATIC">Static IP</SelectItem>
-                        <SelectItem value="PPPOE">PPPoE</SelectItem>
+                        <SelectItem value="DYNAMIC">{t("Dynamic IP")}</SelectItem>
+                        <SelectItem value="STATIC">{t("Static IP")}</SelectItem>
+                        <SelectItem value="PPPOE">{t("PPPoE")}</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
                   {editForm.connectionType === ConnectionType.STATIC && (
                     <div className="space-y-2">
-                      <Label>Static IP</Label>
+                      <Label>{t("Static IP")}</Label>
                       <Select
                         value={editForm.staticIpId}
                         onValueChange={(v) =>
@@ -667,12 +713,12 @@ export function ClientDetailPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select Static IP" />
+                          <SelectValue placeholder={t("Select Static IP")} />
                         </SelectTrigger>
                         <SelectContent>
                           {availableStaticIPs.length === 0 && (
                             <SelectItem value="none" disabled>
-                              No available static IPs
+                              {t("No available static IPs")}
                             </SelectItem>
                           )}
                           {availableStaticIPs.map((ip) => (
@@ -687,7 +733,7 @@ export function ClientDetailPage() {
                   {editForm.connectionType === ConnectionType.PPPOE && (
                     <div className="grid gap-4 sm:grid-cols-2">
                       <div className="space-y-2">
-                        <Label>PPPoE Username</Label>
+                        <Label>{t("PPPoE Username")}</Label>
                         <Input
                           value={editForm.pppoeUsername}
                           onChange={(e) =>
@@ -699,7 +745,7 @@ export function ClientDetailPage() {
                         />
                       </div>
                       <div className="space-y-2">
-                        <Label>PPPoE Password</Label>
+                        <Label>{t("PPPoE Password")}</Label>
                         <Input
                           type="password"
                           value={editForm.pppoePassword}
@@ -718,20 +764,20 @@ export function ClientDetailPage() {
                     onClick={handleSave}
                     disabled={isSaving}
                   >
-                    {isSaving ? "Saving..." : "Save Changes"}
+                    {isSaving ? `${t("Saving")}...` : t("Save Changes")}
                   </Button>
                 </div>
               </DialogContent>
             </Dialog>
             {client.status === "ACTIVE" ? (
               <Button variant="destructive" onClick={handleSuspend}>
-                <Ban className="w-4 h-4 mr-2" />
-                Suspend
+                <Ban className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+                {t("Suspend")}
               </Button>
             ) : client.status === "SUSPENDED" ? (
               <Button variant="default" onClick={handleReactivate}>
-                <CheckCircle className="w-4 h-4 mr-2" />
-                Reactivate
+                <CheckCircle className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+                {t("Reactivate")}
               </Button>
             ) : null}
           </div>
@@ -744,13 +790,13 @@ export function ClientDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <User className="w-5 h-5" />
-              Profile
+              {t("Profile")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="flex items-center gap-2 text-sm">
               <Mail className="w-4 h-4 text-muted-foreground" />
-              <span>{client.email || "No email"}</span>
+              <span>{client.email || t("No email")}</span>
             </div>
             <div className="flex items-center gap-2 text-sm">
               <Phone className="w-4 h-4 text-muted-foreground" />
@@ -761,14 +807,16 @@ export function ClientDetailPage() {
               <span>{client.address}</span>
             </div>
             <div className="pt-4 border-t">
-              <p className="text-xs text-muted-foreground">Connection Type</p>
+              <p className="text-xs text-muted-foreground">
+                {t("Connection Type")}
+              </p>
               <p className="font-medium capitalize">
-                {client.connectionType.toLowerCase().replace("_", " ")}
+                {getConnectionTypeLabel(client.connectionType)}
               </p>
             </div>
             {client.staticIp && (
               <div>
-                <p className="text-xs text-muted-foreground">Static IP</p>
+                <p className="text-xs text-muted-foreground">{t("Static IP")}</p>
                 <p className="font-medium font-mono">
                   {client.staticIp.ipAddress}
                 </p>
@@ -778,7 +826,7 @@ export function ClientDetailPage() {
               <div className="flex items-center justify-between">
                 <div>
                   <p className="text-xs text-muted-foreground">
-                    PPPoE Username
+                    {t("PPPoE Username")}
                   </p>
                   <p className="font-medium font-mono">
                     {client.pppoeUsername}
@@ -797,26 +845,27 @@ export function ClientDetailPage() {
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
               <Globe className="w-5 h-5" />
-              Subscription
+              {t("Subscription")}
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-xs text-muted-foreground">Current Plan</p>
+              <p className="text-xs text-muted-foreground">{t("Current Plan")}</p>
               <p className="font-medium text-lg">
-                {activeSubscription?.plan?.planName || "No active plan"}
+                {translateApiText(activeSubscription?.plan?.planName) ||
+                  t("No active plan")}
               </p>
             </div>
             {activeSubscription && (
               <>
                 <div>
-                  <p className="text-xs text-muted-foreground">Plan Cost</p>
+                  <p className="text-xs text-muted-foreground">{t("Plan Cost")}</p>
                   <p className="font-medium text-lg">
                     ${Number(activeSubscription.plan?.cost || 0).toFixed(2)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">End Date</p>
+                  <p className="text-xs text-muted-foreground">{t("End Date")}</p>
                   <p className="font-medium">
                     {new Date(activeSubscription.endDate).toLocaleDateString()}
                   </p>
@@ -824,8 +873,8 @@ export function ClientDetailPage() {
               </>
             )}
             <div>
-              <p className="text-xs text-muted-foreground">POS</p>
-              <p className="font-medium">{client.pos?.name || "N/A"}</p>
+              <p className="text-xs text-muted-foreground">{t("POS")}</p>
+              <p className="font-medium">{client.pos?.name || t("N/A")}</p>
             </div>
             <div className="pt-4 border-t">
               {activeSubscription ? (
@@ -836,16 +885,19 @@ export function ClientDetailPage() {
                       className="w-full"
                       onClick={openUpgrade}
                     >
-                      Upgrade Plan
+                      {t("Upgrade Plan")}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
+                  <DialogContent
+                    dir={dialogDir}
+                    className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto"
+                  >
                     <DialogHeader>
-                      <DialogTitle>Upgrade Plan</DialogTitle>
+                      <DialogTitle>{t("Upgrade Plan")}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                       <div className="space-y-2">
-                        <Label>New Plan</Label>
+                        <Label>{t("New Plan")}</Label>
                         <Select
                           value={upgradeForm.planId}
                           onValueChange={(v) =>
@@ -853,12 +905,12 @@ export function ClientDetailPage() {
                           }
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select Plan" />
+                            <SelectValue placeholder={t("Select Plan")} />
                           </SelectTrigger>
                           <SelectContent>
                             {servicePlans.length === 0 && (
                               <SelectItem value="none" disabled>
-                                No active plans
+                                {t("No active plans")}
                               </SelectItem>
                             )}
                             {servicePlans
@@ -867,14 +919,14 @@ export function ClientDetailPage() {
                               )
                               .map((plan) => (
                                 <SelectItem key={plan.id} value={plan.id}>
-                                  {plan.planName} - ${plan.cost}
+                                  {translateApiText(plan.planName)} - ${plan.cost}
                                 </SelectItem>
                               ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Effective Date (optional)</Label>
+                        <Label>{t("Effective Date (optional)")}</Label>
                         <Input
                           type="date"
                           value={upgradeForm.effectiveDate}
@@ -891,7 +943,7 @@ export function ClientDetailPage() {
                         onClick={handleUpgrade}
                         disabled={isUpgrading}
                       >
-                        {isUpgrading ? "Upgrading..." : "Upgrade"}
+                        {isUpgrading ? t("Upgrading...") : t("Upgrade")}
                       </Button>
                     </div>
                   </DialogContent>
@@ -907,16 +959,19 @@ export function ClientDetailPage() {
                       className="w-full"
                       onClick={openSubscribe}
                     >
-                      Add Subscription
+                      {t("Add Subscription")}
                     </Button>
                   </DialogTrigger>
-                  <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
+                  <DialogContent
+                    dir={dialogDir}
+                    className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto"
+                  >
                     <DialogHeader>
-                      <DialogTitle>Add Subscription</DialogTitle>
+                      <DialogTitle>{t("Add Subscription")}</DialogTitle>
                     </DialogHeader>
                     <div className="space-y-4 py-2">
                       <div className="space-y-2">
-                        <Label>Plan</Label>
+                        <Label>{t("Plan")}</Label>
                         <Select
                           value={subscribeForm.planId}
                           onValueChange={(v) =>
@@ -924,24 +979,24 @@ export function ClientDetailPage() {
                           }
                         >
                           <SelectTrigger>
-                            <SelectValue placeholder="Select Plan" />
+                            <SelectValue placeholder={t("Select Plan")} />
                           </SelectTrigger>
                           <SelectContent>
                             {servicePlans.length === 0 && (
                               <SelectItem value="none" disabled>
-                                No active plans
+                                {t("No active plans")}
                               </SelectItem>
                             )}
                             {servicePlans.map((plan) => (
                               <SelectItem key={plan.id} value={plan.id}>
-                                {plan.planName} - ${plan.cost}
+                                {translateApiText(plan.planName)} - ${plan.cost}
                               </SelectItem>
                             ))}
                           </SelectContent>
                         </Select>
                       </div>
                       <div className="space-y-2">
-                        <Label>Start Date (optional)</Label>
+                        <Label>{t("Start Date (optional)")}</Label>
                         <Input
                           type="date"
                           value={subscribeForm.startDate}
@@ -958,7 +1013,9 @@ export function ClientDetailPage() {
                         onClick={handleSubscribe}
                         disabled={isSubscribing}
                       >
-                        {isSubscribing ? "Creating..." : "Create Subscription"}
+                        {isSubscribing
+                          ? t("Creating...")
+                          : t("Create Subscription")}
                       </Button>
                     </div>
                   </DialogContent>
@@ -971,7 +1028,7 @@ export function ClientDetailPage() {
         {/* Balance Card */}
         <Card>
           <CardHeader>
-            <CardTitle>Account Balance</CardTitle>
+            <CardTitle>{t("Account Balance")}</CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
             <div
@@ -980,23 +1037,28 @@ export function ClientDetailPage() {
               ${balance.toFixed(2)}
             </div>
             <div>
-              <p className="text-xs text-muted-foreground">Total Invoices</p>
+              <p className="text-xs text-muted-foreground">
+                {t("Total Invoices")}
+              </p>
               <p className="font-medium">{invoices.length}</p>
             </div>
             <div className="pt-4 border-t space-y-2">
               <Dialog open={isPaymentOpen} onOpenChange={setIsPaymentOpen}>
                 <DialogTrigger asChild>
                   <Button className="w-full" onClick={openPayment}>
-                    Record Payment
+                    {t("Record Payment")}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
+                <DialogContent
+                  dir={dialogDir}
+                  className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto"
+                >
                   <DialogHeader>
-                    <DialogTitle>Record Payment</DialogTitle>
+                    <DialogTitle>{t("Record Payment")}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-2">
                     <div className="space-y-2">
-                      <Label>Invoice</Label>
+                      <Label>{t("Invoice")}</Label>
                       <Select
                         value={paymentForm.invoiceId}
                         onValueChange={(v) =>
@@ -1004,14 +1066,14 @@ export function ClientDetailPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select Invoice" />
+                          <SelectValue placeholder={t("Select Invoice")} />
                         </SelectTrigger>
                         <SelectContent>
                           {invoices.filter(
                             (inv) => !isInvoicePaid(inv),
                           ).length === 0 && (
                             <SelectItem value="none" disabled>
-                              No invoices available
+                              {t("No invoices available")}
                             </SelectItem>
                           )}
                           {invoices
@@ -1029,7 +1091,7 @@ export function ClientDetailPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Amount Paid</Label>
+                      <Label>{t("Amount Paid")}</Label>
                       <Input
                         type="number"
                         min="0"
@@ -1043,7 +1105,7 @@ export function ClientDetailPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Payment Method</Label>
+                      <Label>{t("Payment Method")}</Label>
                       <Select
                         value={paymentForm.paymentMethod}
                         onValueChange={(v) =>
@@ -1054,20 +1116,20 @@ export function ClientDetailPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue />
+                          <SelectValue placeholder={t("Select Payment Method")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="CASH">Cash</SelectItem>
+                          <SelectItem value="CASH">{t("Cash")}</SelectItem>
                           <SelectItem value="BANK_TRANSFER">
-                            Bank Transfer
+                            {t("Bank Transfer")}
                           </SelectItem>
-                          <SelectItem value="CARD">Card</SelectItem>
-                          <SelectItem value="ONLINE">Online</SelectItem>
+                          <SelectItem value="CARD">{t("Card")}</SelectItem>
+                          <SelectItem value="ONLINE">{t("Online")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Reference (optional)</Label>
+                      <Label>{t("Reference (optional)")}</Label>
                       <Input
                         value={paymentForm.paymentReference}
                         onChange={(e) =>
@@ -1079,7 +1141,7 @@ export function ClientDetailPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Notes (optional)</Label>
+                      <Label>{t("Notes (optional)")}</Label>
                       <Input
                         value={paymentForm.notes}
                         onChange={(e) =>
@@ -1095,7 +1157,9 @@ export function ClientDetailPage() {
                       onClick={handleCreatePayment}
                       disabled={isCreatingPayment}
                     >
-                      {isCreatingPayment ? "Saving..." : "Record Payment"}
+                      {isCreatingPayment
+                        ? `${t("Saving")}...`
+                        : t("Record Payment")}
                     </Button>
                   </div>
                 </DialogContent>
@@ -1107,16 +1171,19 @@ export function ClientDetailPage() {
                     className="w-full"
                     onClick={openInvoice}
                   >
-                    Generate Invoice
+                    {t("Generate Invoice")}
                   </Button>
                 </DialogTrigger>
-                <DialogContent className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto">
+                <DialogContent
+                  dir={dialogDir}
+                  className="w-[calc(100%-2rem)] max-w-[95vw] sm:max-w-xl max-h-[90vh] overflow-y-auto"
+                >
                   <DialogHeader>
-                    <DialogTitle>Generate Invoice</DialogTitle>
+                    <DialogTitle>{t("Generate Invoice")}</DialogTitle>
                   </DialogHeader>
                   <div className="space-y-4 py-2">
                     <div className="space-y-2">
-                      <Label>Amount</Label>
+                      <Label>{t("Amount")}</Label>
                       <Input
                         type="number"
                         min="0"
@@ -1130,7 +1197,7 @@ export function ClientDetailPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Issue Date</Label>
+                      <Label>{t("Issue Date")}</Label>
                       <Input
                         type="date"
                         value={invoiceForm.issueDate}
@@ -1143,7 +1210,7 @@ export function ClientDetailPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Due Date</Label>
+                      <Label>{t("Due Date")}</Label>
                       <Input
                         type="date"
                         value={invoiceForm.dueDate}
@@ -1156,7 +1223,7 @@ export function ClientDetailPage() {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label>Subscription (optional)</Label>
+                      <Label>{t("Subscription (optional)")}</Label>
                       <Select
                         value={invoiceForm.subscriptionId}
                         onValueChange={(v) =>
@@ -1164,10 +1231,12 @@ export function ClientDetailPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder="Select Subscription" />
+                          <SelectValue placeholder={t("Select Subscription")} />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="none">No Subscription</SelectItem>
+                          <SelectItem value="none">
+                            {t("No Subscription")}
+                          </SelectItem>
                           {subscriptions.map((sub) => (
                             <SelectItem key={sub.id} value={sub.id}>
                               {sub.plan?.planName || sub.id}
@@ -1177,7 +1246,7 @@ export function ClientDetailPage() {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label>Notes (optional)</Label>
+                      <Label>{t("Notes (optional)")}</Label>
                       <Input
                         value={invoiceForm.notes}
                         onChange={(e) =>
@@ -1193,7 +1262,9 @@ export function ClientDetailPage() {
                       onClick={handleCreateInvoice}
                       disabled={isCreatingInvoice}
                     >
-                      {isCreatingInvoice ? "Creating..." : "Create Invoice"}
+                      {isCreatingInvoice
+                        ? t("Creating...")
+                        : t("Create Invoice")}
                     </Button>
                   </div>
                 </DialogContent>
@@ -1205,9 +1276,9 @@ export function ClientDetailPage() {
 
       <Tabs defaultValue="invoices" className="space-y-4">
         <TabsList>
-          <TabsTrigger value="invoices">Invoices</TabsTrigger>
-          <TabsTrigger value="subscriptions">Subscriptions</TabsTrigger>
-          <TabsTrigger value="history">Suspension History</TabsTrigger>
+          <TabsTrigger value="invoices">{t("Invoices")}</TabsTrigger>
+          <TabsTrigger value="subscriptions">{t("Subscriptions")}</TabsTrigger>
+          <TabsTrigger value="history">{t("Suspension History")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="invoices">
@@ -1216,7 +1287,7 @@ export function ClientDetailPage() {
               <DataTable
                 columns={invoiceColumns}
                 data={invoices}
-                emptyMessage="No invoices"
+                emptyMessage={t("No invoices")}
               />
             </CardContent>
           </Card>
@@ -1229,16 +1300,18 @@ export function ClientDetailPage() {
                 {subscriptions.map((sub) => (
                   <div key={sub.id} className="p-4 border rounded-lg">
                     <div className="flex items-center justify-between mb-2">
-                      <h4 className="font-semibold">{sub.plan?.planName}</h4>
+                      <h4 className="font-semibold">
+                        {translateApiText(sub.plan?.planName)}
+                      </h4>
                       <StatusBadge status={sub.status.toLowerCase()} />
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <p className="text-muted-foreground">Start Date</p>
+                        <p className="text-muted-foreground">{t("Start Date")}</p>
                         <p>{new Date(sub.startDate).toLocaleDateString()}</p>
                       </div>
                       <div>
-                        <p className="text-muted-foreground">End Date</p>
+                        <p className="text-muted-foreground">{t("End Date")}</p>
                         <p>{new Date(sub.endDate).toLocaleDateString()}</p>
                       </div>
                     </div>
@@ -1255,7 +1328,7 @@ export function ClientDetailPage() {
               <DataTable
                 columns={suspensionColumns}
                 data={suspensionHistory}
-                emptyMessage="No suspension history"
+                emptyMessage={t("No suspension history")}
               />
             </CardContent>
           </Card>

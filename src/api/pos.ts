@@ -1,4 +1,5 @@
 import type { POS } from '@/types';
+import i18n from '@/i18n';
 
 const mockPOS: POS[] = [
   { id: 'pos-1', name: 'Downtown Branch', location: 'Downtown', address: '123 Main St', allocatedBandwidth: 1000, usedBandwidth: 720, managerId: '2', managerName: 'John Doe', activeClients: 185, totalClients: 210, staticIpPool: 50, usedStaticIps: 35, status: 'active', createdAt: '2024-01-15' },
@@ -56,7 +57,7 @@ export const posApi = {
   update: async (id: string, data: Partial<POS>): Promise<POS> => {
     await new Promise((resolve) => setTimeout(resolve, 800));
     const index = mockPOS.findIndex(p => p.id === id);
-    if (index === -1) throw new Error('POS not found');
+    if (index === -1) throw new Error(i18n.t('POS not found'));
     mockPOS[index] = { ...mockPOS[index], ...data };
     return mockPOS[index];
   },
@@ -64,7 +65,7 @@ export const posApi = {
   updateBandwidth: async (id: string, bandwidth: number): Promise<POS> => {
     await new Promise((resolve) => setTimeout(resolve, 600));
     const index = mockPOS.findIndex(p => p.id === id);
-    if (index === -1) throw new Error('POS not found');
+    if (index === -1) throw new Error(i18n.t('POS not found'));
     mockPOS[index].allocatedBandwidth = bandwidth;
     return mockPOS[index];
   },

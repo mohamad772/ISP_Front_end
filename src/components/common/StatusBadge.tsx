@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils';
+import { useTranslation } from "react-i18next";
 
 type StatusType =
   | "active"
@@ -37,14 +38,17 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = statusConfig[status as StatusType] || {
-    label: status,
-    className: "badge-info",
-  };
-  
+  const { t } = useTranslation();
+  const normalizedStatus = String(status).toLowerCase() as StatusType;
+  const config = statusConfig[normalizedStatus];
+  const fallbackLabel = String(status)
+    .replace(/[_-]+/g, " ")
+    .toLowerCase()
+    .replace(/\b\w/g, (char) => char.toUpperCase());
+
   return (
-    <span className={cn(config.className, className)}>
-      {config.label}
+    <span className={cn(config?.className ?? "badge-info", className)}>
+      {t(config?.label ?? fallbackLabel, { defaultValue: fallbackLabel })}
     </span>
   );
 }

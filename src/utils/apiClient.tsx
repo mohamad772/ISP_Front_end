@@ -28,18 +28,6 @@ apiClient.interceptors.request.use(
     if (!path.startsWith("/")) {
       path = `/${path}`;
     }
-    const allowWriteForPosManager =
-      path.startsWith("/auth") || path.startsWith("/pppoe-requests");
-
-    if (user?.role === UserRole.POS_MANAGER && isWrite && !allowWriteForPosManager) {
-      return Promise.reject({
-        response: {
-          status: 403,
-          data: { message: "POS Manager role is read-only for this action." },
-        },
-      });
-    }
-
     const getCapabilityForRequest = (reqPath: string, reqMethod: string) => {
       if (reqPath.startsWith("/pos")) {
         if (reqMethod === "get") return "POS_READ";
@@ -120,6 +108,22 @@ apiClient.interceptors.request.use(
         }
       }
     }
+    if (user?.role === UserRole.POS_MANAGER && isWrite) {
+      const capability = getCapabilityForRequest(path, method);
+      if (capability) {
+        const hasCapability = user.capabilities?.includes(capability);
+        if (!hasCapability) {
+          return Promise.reject({
+            response: {
+              status: 403,
+              data: {
+                message: "POS Manager lacks permission for this action.",
+              },
+            },
+          });
+        }
+      }
+    }
     if (config.url?.split("/")[1] !== "auth") {
       console.log("injected");
       if (access_token) {
@@ -151,7 +155,9 @@ apiClient.interceptors.response.use(
       window.location.href = "/login";
     } else {
       // Log or handle other errors
-      console.error("An error occurred:", error.message);
+      const message =
+        error?.response?.data?.message || error?.message || "Unknown error";
+      console.error("An error occurred:", message);
     }
     return Promise.reject(error);
   },

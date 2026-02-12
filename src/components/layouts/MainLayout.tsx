@@ -7,9 +7,13 @@ import { Header } from "./Header";
 export function MainLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
   const isAuthenticated = useStore((state) => state.isAuthenticated);
+  const user = useStore((state) => state.user);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
+  }
+  if (user?.role === "CLIENT") {
+    return <Navigate to="/client" replace />;
   }
 
   return (

@@ -66,6 +66,31 @@ export enum PPPoERequestStatus {
   COMPLETED = "COMPLETED",
 }
 
+export enum RequestStatus {
+  PENDING = "PENDING",
+  APPROVED = "APPROVED",
+  REJECTED = "REJECTED",
+  COMPLETED = "COMPLETED",
+}
+
+export enum NotificationType {
+  ALERT = "ALERT",
+  PAYMENT_WARNING = "PAYMENT_WARNING",
+  BANDWIDTH_WARNING = "BANDWIDTH_WARNING",
+}
+
+export enum NotificationChannel {
+  TELEGRAM = "TELEGRAM",
+  FIREBASE = "FIREBASE",
+  BOTH = "BOTH",
+}
+
+export enum NotificationStatus {
+  PENDING = "PENDING",
+  SENT = "SENT",
+  FAILED = "FAILED",
+}
+
 export enum SuspensionReason {
   NON_PAYMENT = "NON_PAYMENT",
   VIOLATION = "VIOLATION",
@@ -107,6 +132,7 @@ export interface User extends BaseEntity {
   role: UserRole;
   isActive: boolean;
   posId?: string;
+  clientId?: string;
   capabilities?: string[];
   pos?: POS;
 }
@@ -191,6 +217,7 @@ export interface CreateClientRequest {
   staticIpId?: string;
   pppoeUsername?: string;
   pppoePassword?: string;
+  password: string;
 }
 
 export interface UpdateClientRequest {
@@ -598,6 +625,105 @@ export interface PPPoERequestFilters {
 export interface SuspensionHistoryFilters {
   clientId?: string;
   suspensionReason?: SuspensionReason;
+}
+
+// ============================================
+// Notifications Types
+// ============================================
+
+export interface Notification extends BaseEntity {
+  type: NotificationType;
+  channel: NotificationChannel;
+  title: string;
+  message: string;
+  status: NotificationStatus;
+  recipientId?: string | null;
+  metadata?: Record<string, unknown> | null;
+  sentAt?: string | null;
+  errorMessage?: string | null;
+}
+
+// ============================================
+// Password Change Request Types
+// ============================================
+
+export interface PasswordChangeRequest extends BaseEntity {
+  userId: string;
+  status: RequestStatus;
+  reason?: string | null;
+  requestedBy?: string | null;
+  approvedBy?: string | null;
+  requestedAt: string;
+  processedAt?: string | null;
+  user?: User;
+  requestedByUser?: User;
+  approvedByUser?: User;
+}
+
+export interface CreatePasswordChangeRequest {
+  currentPassword: string;
+  newPassword: string;
+  reason?: string;
+}
+
+export interface ApprovePasswordChangeRequest {
+  note?: string;
+}
+
+export interface RejectPasswordChangeRequest {
+  rejectionReason: string;
+  note?: string;
+}
+
+export interface PasswordChangeRequestFilters {
+  status?: RequestStatus;
+  userId?: string;
+}
+
+// ============================================
+// Package Upgrade Request Types
+// ============================================
+
+export interface PackageUpgradeRequest extends BaseEntity {
+  subscriptionId: string;
+  clientId: string;
+  currentPlanId: string;
+  requestedPlanId: string;
+  effectiveDate?: string | null;
+  status: RequestStatus;
+  reason?: string | null;
+  requestedBy: string;
+  approvedBy?: string | null;
+  requestedAt: string;
+  processedAt?: string | null;
+  resultingSubscriptionId?: string | null;
+  subscription?: Subscription;
+  currentPlan?: ServicePlan;
+  requestedPlan?: ServicePlan;
+  requestedByUser?: User;
+  approvedByUser?: User;
+}
+
+export interface CreatePackageUpgradeRequest {
+  subscriptionId: string;
+  requestedPlanId: string;
+  effectiveDate?: string;
+  reason?: string;
+}
+
+export interface ApprovePackageUpgradeRequest {
+  note?: string;
+}
+
+export interface RejectPackageUpgradeRequest {
+  rejectionReason: string;
+  note?: string;
+}
+
+export interface PackageUpgradeRequestFilters {
+  status?: RequestStatus;
+  subscriptionId?: string;
+  clientId?: string;
 }
 
 // ============================================
