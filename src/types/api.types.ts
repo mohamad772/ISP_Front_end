@@ -212,12 +212,12 @@ export interface CreateClientRequest {
   phone: string;
   email?: string;
   address: string;
+  password: string;
   nationalId?: string;
   connectionType: ConnectionType;
   staticIpId?: string;
   pppoeUsername?: string;
   pppoePassword?: string;
-  password: string;
 }
 
 export interface UpdateClientRequest {

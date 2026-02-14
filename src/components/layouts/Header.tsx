@@ -23,22 +23,12 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { cn } from "@/lib/utils";
 import { useNotifications } from "@/hooks/useNotifications";
+
 import {
-  useApprovePasswordChangeRequest,
-  useRejectPasswordChangeRequest,
-  usePasswordChangeRequests,
-} from "@/hooks/usePasswordChangeRequests";
-import {
-  useApprovePPPoERequest,
-  useRejectPPPoERequest,
-  usePPPoERequests,
-} from "@/hooks/usepppoeRequests";
-import {
-  useApprovePackageUpgradeRequest,
-  useRejectPackageUpgradeRequest,
-  usePackageUpgradeRequests,
-} from "@/hooks/usePackageUpgradeRequests";
-import { Notification, RequestStatus, PPPoERequestStatus } from "@/types/api.types";
+  Notification,
+  RequestStatus,
+  PPPoERequestStatus,
+} from "@/types/api.types";
 
 interface HeaderProps {
   onMenuClick: () => void;
@@ -55,26 +45,8 @@ export function Header({ onMenuClick, className }: HeaderProps) {
   const isAdmin = user?.role === "WSP_ADMIN" || user?.role === "SUB_ADMIN";
   const { data: notifications = [], isLoading } = useNotifications(20);
   const [hasOpenedNotifications, setHasOpenedNotifications] = useState(false);
-  const { data: passwordRequests = [], isLoading: isLoadingRequests } =
-    usePasswordChangeRequests(
-      isAdmin ? { status: RequestStatus.PENDING } : undefined,
-    );
-  const { data: pppoeRequests = [], isLoading: isLoadingPppoe } =
-    usePPPoERequests(isAdmin ? { status: PPPoERequestStatus.PENDING } : undefined);
-  const { data: packageRequests = [], isLoading: isLoadingPackage } =
-    usePackageUpgradeRequests(isAdmin ? { status: RequestStatus.PENDING } : undefined);
-  const { mutate: approveRequest, isPending: isApproving } =
-    useApprovePasswordChangeRequest();
-  const { mutate: rejectRequest, isPending: isRejecting } =
-    useRejectPasswordChangeRequest();
-  const { mutate: approvePppoe, isPending: isApprovingPppoe } =
-    useApprovePPPoERequest();
-  const { mutate: rejectPppoe, isPending: isRejectingPppoe } =
-    useRejectPPPoERequest();
-  const { mutate: approvePackage, isPending: isApprovingPackage } =
-    useApprovePackageUpgradeRequest();
-  const { mutate: rejectPackage, isPending: isRejectingPackage } =
-    useRejectPackageUpgradeRequest();
+
+  // Requests functionality removed as per user request
 
   const requestIdsFromNotifications = useMemo(() => {
     const ids = new Set<string>();
@@ -95,61 +67,25 @@ export function Header({ onMenuClick, className }: HeaderProps) {
     });
   }, [notifications]);
 
-  const pendingPasswordRequests = useMemo(() => {
-    if (!isAdmin) return [];
-    return passwordRequests.filter(
-      (request) =>
-        request.status === RequestStatus.PENDING &&
-        !requestIdsFromNotifications.has(request.id),
-    );
-  }, [isAdmin, passwordRequests, requestIdsFromNotifications]);
-
-  const pendingPppoeRequests = useMemo(() => {
-    if (!isAdmin) return [];
-    return pppoeRequests.filter(
-      (request) =>
-        request.status === PPPoERequestStatus.PENDING &&
-        !requestIdsFromNotifications.has(request.id),
-    );
-  }, [isAdmin, pppoeRequests, requestIdsFromNotifications]);
-
-  const pendingPackageRequests = useMemo(() => {
-    if (!isAdmin) return [];
-    return packageRequests.filter(
-      (request) =>
-        request.status === RequestStatus.PENDING &&
-        !requestIdsFromNotifications.has(request.id),
-    );
-  }, [isAdmin, packageRequests, requestIdsFromNotifications]);
-
-  const notificationCount =
-    notifications.length +
-    pendingPasswordRequests.length +
-    pendingPppoeRequests.length +
-    pendingPackageRequests.length;
+  const notificationCount = notifications.length;
 
   const latestActivityAt = useMemo(() => {
     const candidates: Array<string | undefined> = [];
     notifications.forEach((n) => {
       if (n.createdAt) candidates.push(n.createdAt);
     });
-    pendingPasswordRequests.forEach((r) => {
-      if (r.requestedAt) candidates.push(r.requestedAt);
-      if (r.createdAt) candidates.push(r.createdAt);
-    });
-    pendingPppoeRequests.forEach((r) => {
-      if (r.createdAt) candidates.push(r.createdAt);
-    });
-    pendingPackageRequests.forEach((r) => {
-      if (r.requestedAt) candidates.push(r.requestedAt);
-      if (r.createdAt) candidates.push(r.createdAt);
-    });
+
+    // Removed requests processing
+
     const dates = candidates
       .map((value) => (value ? new Date(value) : null))
-      .filter((value): value is Date => value instanceof Date && !isNaN(value.getTime()));
+      .filter(
+        (value): value is Date =>
+          value instanceof Date && !isNaN(value.getTime()),
+      );
     if (dates.length === 0) return null;
     return new Date(Math.max(...dates.map((d) => d.getTime())));
-  }, [notifications, pendingPasswordRequests, pendingPppoeRequests, pendingPackageRequests]);
+  }, [notifications]);
 
   useEffect(() => {
     if (!latestActivityAt) {
@@ -174,30 +110,6 @@ export function Header({ onMenuClick, className }: HeaderProps) {
       return meta?.type === "PASSWORD_CHANGE_REQUEST";
     });
   }, [notifications]);
-
-  const pendingPasswordRequestIds = useMemo(() => {
-    return new Set(
-      passwordRequests
-        .filter((request) => request.status === RequestStatus.PENDING)
-        .map((request) => request.id),
-    );
-  }, [passwordRequests]);
-
-  const pendingPppoeRequestIds = useMemo(() => {
-    return new Set(
-      pppoeRequests
-        .filter((request) => request.status === PPPoERequestStatus.PENDING)
-        .map((request) => request.id),
-    );
-  }, [pppoeRequests]);
-
-  const pendingPackageRequestIds = useMemo(() => {
-    return new Set(
-      packageRequests
-        .filter((request) => request.status === RequestStatus.PENDING)
-        .map((request) => request.id),
-    );
-  }, [packageRequests]);
 
   const { mutate: logout, isPending } = useLogout();
 
@@ -262,53 +174,22 @@ export function Header({ onMenuClick, className }: HeaderProps) {
                 )}
               </Button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent
-              align="end"
-              className="w-96 max-w-[90vw] p-2"
-            >
+            <DropdownMenuContent align="end" className="w-96 max-w-[90vw] p-2">
               <div dir={isArabic ? "rtl" : "ltr"}>
-              <DropdownMenuLabel>{t("Notifications")}</DropdownMenuLabel>
-              <DropdownMenuSeparator />
-              {isLoading && (
-                <div className="px-3 py-2 text-sm text-muted-foreground">
-                  {t("Loading...")}
-                </div>
-              )}
-              {!isLoading &&
-                !isLoadingRequests &&
-                !isLoadingPppoe &&
-                !isLoadingPackage &&
-                notifications.length === 0 &&
-                pendingPasswordRequests.length === 0 &&
-                pendingPppoeRequests.length === 0 &&
-                pendingPackageRequests.length === 0 && (
-                <div className="px-3 py-6 text-sm text-muted-foreground text-center">
-                  {t("No notifications found.")}
-                </div>
-              )}
-              {!isLoading &&
-                sortedNotifications.map((notification: Notification) => {
-                  const meta = notification.metadata as
-                    | Record<string, unknown>
-                    | null;
-                  const requestId =
-                    typeof meta?.requestId === "string"
-                      ? meta.requestId
-                      : null;
-                  const isPasswordRequest =
-                    meta?.type === "PASSWORD_CHANGE_REQUEST" && requestId;
-                  const isPendingRequest =
-                    !!requestId && pendingPasswordRequestIds.has(requestId);
-                  const isPppoeRequest =
-                    meta?.type === "PPPOE_CHANGE_REQUEST" && requestId;
-                  const isPendingPppoe =
-                    !!requestId && pendingPppoeRequestIds.has(requestId);
-                  const isPackageRequest =
-                    meta?.type === "PACKAGE_UPGRADE_REQUEST" && requestId;
-                  const isPendingPackage =
-                    !!requestId && pendingPackageRequestIds.has(requestId);
-
-                  return (
+                <DropdownMenuLabel>{t("Notifications")}</DropdownMenuLabel>
+                <DropdownMenuSeparator />
+                {isLoading && (
+                  <div className="px-3 py-2 text-sm text-muted-foreground">
+                    {t("Loading...")}
+                  </div>
+                )}
+                {!isLoading && notifications.length === 0 && (
+                  <div className="px-3 py-6 text-sm text-muted-foreground text-center">
+                    {t("No notifications found.")}
+                  </div>
+                )}
+                {!isLoading &&
+                  sortedNotifications.map((notification: Notification) => (
                     <div
                       key={notification.id}
                       className="px-3 py-2 rounded-md hover:bg-accent/60 transition-colors"
@@ -319,273 +200,8 @@ export function Header({ onMenuClick, className }: HeaderProps) {
                       <div className="text-xs text-muted-foreground mt-1">
                         {translateDynamicText(notification.message)}
                       </div>
-
-                      {isAdmin && isPasswordRequest && isPendingRequest && (
-                        <div className="mt-2 flex gap-2">
-                          <Button
-                            size="sm"
-                            className="h-8"
-                            disabled={isApproving || isRejecting}
-                            onClick={() =>
-                              approveRequest({ id: requestId })
-                            }
-                          >
-                            {t("Approve")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-8"
-                            disabled={isApproving || isRejecting}
-                            onClick={() => {
-                              const reason =
-                                window.prompt(
-                                  "Rejection reason?",
-                                  "Not approved",
-                                ) ?? "";
-                              if (!reason.trim()) return;
-                              rejectRequest({
-                                id: requestId,
-                                data: { rejectionReason: reason.trim() },
-                              });
-                            }}
-                          >
-                            {t("Reject")}
-                          </Button>
-                        </div>
-                      )}
-                      {isAdmin && isPppoeRequest && isPendingPppoe && (
-                        <div className="mt-2 flex gap-2">
-                          <Button
-                            size="sm"
-                            className="h-8"
-                            disabled={isApprovingPppoe || isRejectingPppoe}
-                            onClick={() => approvePppoe({ id: requestId })}
-                          >
-                            {t("Approve")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-8"
-                            disabled={isApprovingPppoe || isRejectingPppoe}
-                            onClick={() => {
-                              const reason =
-                                window.prompt(
-                                  "Rejection reason?",
-                                  "Not approved",
-                                ) ?? "";
-                              if (!reason.trim()) return;
-                              rejectPppoe({
-                                id: requestId,
-                                data: { rejectionReason: reason.trim() },
-                              });
-                            }}
-                          >
-                            {t("Reject")}
-                          </Button>
-                        </div>
-                      )}
-                      {isAdmin && isPackageRequest && isPendingPackage && (
-                        <div className="mt-2 flex gap-2">
-                          <Button
-                            size="sm"
-                            className="h-8"
-                            disabled={isApprovingPackage || isRejectingPackage}
-                            onClick={() => approvePackage({ id: requestId })}
-                          >
-                            {t("Approve")}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="destructive"
-                            className="h-8"
-                            disabled={isApprovingPackage || isRejectingPackage}
-                            onClick={() => {
-                              const reason =
-                                window.prompt(
-                                  "Rejection reason?",
-                                  "Not approved",
-                                ) ?? "";
-                              if (!reason.trim()) return;
-                              rejectPackage({
-                                id: requestId,
-                                data: { rejectionReason: reason.trim() },
-                              });
-                            }}
-                          >
-                            {t("Reject")}
-                          </Button>
-                        </div>
-                      )}
                     </div>
-                  );
-                })}
-              {isAdmin && pendingPasswordRequests.length > 0 && (
-                <div className="px-3 pt-2 text-xs uppercase tracking-wide text-muted-foreground">
-                  Password Change Requests
-                </div>
-              )}
-              {isAdmin &&
-                pendingPasswordRequests.map((request) => (
-                  <div
-                    key={request.id}
-                    className="px-3 py-2 rounded-md hover:bg-accent/60 transition-colors"
-                  >
-                    <div className="text-sm font-medium">
-                      Password Change Request
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {request.user?.email ||
-                        request.user?.username ||
-                        request.userId}
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        disabled={isApproving || isRejecting}
-                        onClick={() => approveRequest({ id: request.id })}
-                      >
-                        {t("Approve")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-8"
-                        disabled={isApproving || isRejecting}
-                        onClick={() => {
-                          const reason =
-                            window.prompt(
-                              "Rejection reason?",
-                              "Not approved",
-                            ) ?? "";
-                          if (!reason.trim()) return;
-                          rejectRequest({
-                            id: request.id,
-                            data: { rejectionReason: reason.trim() },
-                          });
-                        }}
-                      >
-                        {t("Reject")}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              {isAdmin && pendingPppoeRequests.length > 0 && (
-                <div className="px-3 pt-2 text-xs uppercase tracking-wide text-muted-foreground">
-                  PPPoE Requests
-                </div>
-              )}
-              {isAdmin &&
-                pendingPppoeRequests.map((request) => (
-                  <div
-                    key={request.id}
-                    className="px-3 py-2 rounded-md hover:bg-accent/60 transition-colors"
-                  >
-                    <div className="text-sm font-medium">
-                      PPPoE Change Request
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {request.client?.fullName || request.clientId}
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        disabled={isApprovingPppoe || isRejectingPppoe}
-                        onClick={() => approvePppoe({ id: request.id })}
-                      >
-                        {t("Approve")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-8"
-                        disabled={isApprovingPppoe || isRejectingPppoe}
-                        onClick={() => {
-                          const reason =
-                            window.prompt(
-                              "Rejection reason?",
-                              "Not approved",
-                            ) ?? "";
-                          if (!reason.trim()) return;
-                          rejectPppoe({
-                            id: request.id,
-                            data: { rejectionReason: reason.trim() },
-                          });
-                        }}
-                      >
-                        {t("Reject")}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              {isAdmin && pendingPackageRequests.length > 0 && (
-                <div className="px-3 pt-2 text-xs uppercase tracking-wide text-muted-foreground">
-                  {t("Package Upgrade Requests")}
-                </div>
-              )}
-              {isAdmin &&
-                pendingPackageRequests.map((request) => (
-                  <div
-                    key={request.id}
-                    className="px-3 py-2 rounded-md hover:bg-accent/60 transition-colors"
-                  >
-                    <div className="text-sm font-medium">
-                      {t("Package Upgrade Request")}
-                    </div>
-                    <div className="text-xs text-muted-foreground mt-1">
-                      {(translateDynamicText(request.currentPlan?.planName) ||
-                        t("Current plan")) +
-                        " -> " +
-                        (translateDynamicText(request.requestedPlan?.planName) ||
-                          t("Requested plan"))}
-                    </div>
-                    <div className="mt-2 flex gap-2">
-                      <Button
-                        size="sm"
-                        className="h-8"
-                        disabled={isApprovingPackage || isRejectingPackage}
-                        onClick={() => approvePackage({ id: request.id })}
-                      >
-                        {t("Approve")}
-                      </Button>
-                      <Button
-                        size="sm"
-                        variant="destructive"
-                        className="h-8"
-                        disabled={isApprovingPackage || isRejectingPackage}
-                        onClick={() => {
-                          const reason =
-                            window.prompt(
-                              "Rejection reason?",
-                              "Not approved",
-                            ) ?? "";
-                          if (!reason.trim()) return;
-                          rejectPackage({
-                            id: request.id,
-                            data: { rejectionReason: reason.trim() },
-                          });
-                        }}
-                      >
-                        {t("Reject")}
-                      </Button>
-                    </div>
-                  </div>
-                ))}
-              {isAdmin &&
-                !isLoadingRequests &&
-                !isLoadingPppoe &&
-                !isLoadingPackage &&
-                pendingPasswordRequests.length === 0 &&
-                pendingPppoeRequests.length === 0 &&
-                pendingPackageRequests.length === 0 &&
-                actionableNotifications.length === 0 && (
-                  <div className="px-3 py-2 text-xs text-muted-foreground">
-                    No pending requests.
-                  </div>
-                )}
+                  ))}
               </div>
             </DropdownMenuContent>
           </DropdownMenu>
@@ -613,52 +229,54 @@ export function Header({ onMenuClick, className }: HeaderProps) {
               className="w-56 animate-in fade-in-0 zoom-in-95 slide-in-from-top-2 duration-200"
             >
               <div dir={isArabic ? "rtl" : "ltr"}>
-              <DropdownMenuLabel>
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
-                    <span className="text-base font-medium text-primary-foreground">
-                      {user?.username?.charAt(0).toUpperCase() ?? "U"}
-                    </span>
+                <DropdownMenuLabel>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-full bg-primary flex items-center justify-center">
+                      <span className="text-base font-medium text-primary-foreground">
+                        {user?.username?.charAt(0).toUpperCase() ?? "U"}
+                      </span>
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="font-medium truncate">
+                        {user?.username ?? "User"}
+                      </p>
+                      <p className="text-xs text-muted-foreground truncate">
+                        {user?.email ?? "-"}
+                      </p>
+                    </div>
                   </div>
-                  <div className="flex-1 min-w-0">
-                    <p className="font-medium truncate">
-                      {user?.username ?? "User"}
-                    </p>
-                    <p className="text-xs text-muted-foreground truncate">
-                      {user?.email ?? "-"}
-                    </p>
-                  </div>
-                </div>
-              </DropdownMenuLabel>
+                </DropdownMenuLabel>
 
-              <DropdownMenuSeparator />
+                <DropdownMenuSeparator />
 
-              <DropdownMenuItem
-                onClick={() => navigate("/profile")}
-                className="cursor-pointer transition-colors"
-              >
-                <User className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
-                {t("Profile")}
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate("/profile")}
+                  className="cursor-pointer transition-colors"
+                >
+                  <User className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+                  {t("Profile")}
+                </DropdownMenuItem>
 
-              <DropdownMenuItem
-                onClick={() => navigate("/settings")}
-                className="cursor-pointer transition-colors"
-              >
-                <Settings className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
-                {t("Settings")}
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={() => navigate("/settings")}
+                  className="cursor-pointer transition-colors"
+                >
+                  <Settings
+                    className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`}
+                  />
+                  {t("Settings")}
+                </DropdownMenuItem>
 
-              <DropdownMenuSeparator />
+                <DropdownMenuSeparator />
 
-              <DropdownMenuItem
-                onClick={handleLogout}
-                className="text-destructive focus:text-destructive cursor-pointer transition-colors"
-                disabled={isPending}
-              >
-                <LogOut className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
-                {isPending ? t("Logging out...") : t("Logout")}
-              </DropdownMenuItem>
+                <DropdownMenuItem
+                  onClick={handleLogout}
+                  className="text-destructive focus:text-destructive cursor-pointer transition-colors"
+                  disabled={isPending}
+                >
+                  <LogOut className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+                  {isPending ? t("Logging out...") : t("Logout")}
+                </DropdownMenuItem>
               </div>
             </DropdownMenuContent>
           </DropdownMenu>

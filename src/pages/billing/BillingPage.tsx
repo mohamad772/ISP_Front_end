@@ -37,7 +37,7 @@ import {
   Plus,
   Wifi,
 } from "lucide-react";
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { useTranslation } from "react-i18next";
 import { useStore } from "@/store/auth-store";
@@ -53,6 +53,7 @@ import {
   useDeactivateServicePlan,
 } from "@/hooks/useServicePlan";
 import { useClients } from "@/hooks/useclients";
+import { usePOS } from "@/hooks/usePos";
 
 const AnimatedBackground = () => {
   return (
@@ -68,13 +69,16 @@ const AnimatedBackground = () => {
 export function BillingPage() {
   const { t } = useTranslation();
   const { toast } = useToast();
+  const user = useStore((state) => state.user);
   const hasPermission = useStore((state) => state.hasPermission);
+  const isPosManager = user?.role === "POS_MANAGER";
   const canCreateInvoice = hasPermission("INVOICES_CREATE");
   const canCreatePayment = hasPermission("PAYMENTS_CREATE");
   const { data: plans = [], isLoading: plansLoading } = useServicePlans();
   const { data: invoices = [], isLoading: invoicesLoading } = useInvoices();
   const { data: payments = [], isLoading: paymentsLoading } = usePayments();
   const { data: clientsData } = useClients({ page: 1, limit: 1000 });
+  const { data: posDetails } = usePOS(isPosManager ? user?.posId || "" : "");
   const clients = clientsData?.data ?? [];
   const createInvoiceMutation = useCreateInvoice();
   const createPaymentMutation = useCreatePayment();
@@ -153,10 +157,78 @@ export function BillingPage() {
     return durationType;
   };
 
-  const totalRevenue = payments.reduce(
-    (sum, p) => sum + Number(p.amountPaid || 0) + Number(p.extraAmount || 0),
-    0,
+  const revenueMetrics = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const previousMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+
+    const currentMonthRevenue = payments.reduce((sum, payment) => {
+      const dateSource = payment.paymentDate || payment.createdAt;
+      const paidAt = new Date(dateSource);
+      if (Number.isNaN(paidAt.getTime())) return sum;
+
+      if (
+        paidAt.getMonth() === currentMonth &&
+        paidAt.getFullYear() === currentYear
+      ) {
+        return (
+          sum +
+          Number(payment.amountPaid || 0) +
+          Number(payment.extraAmount || 0)
+        );
+      }
+      return sum;
+    }, 0);
+
+    const previousMonthRevenue = payments.reduce((sum, payment) => {
+      const dateSource = payment.paymentDate || payment.createdAt;
+      const paidAt = new Date(dateSource);
+      if (Number.isNaN(paidAt.getTime())) return sum;
+
+      if (
+        paidAt.getMonth() === previousMonth &&
+        paidAt.getFullYear() === previousMonthYear
+      ) {
+        return (
+          sum +
+          Number(payment.amountPaid || 0) +
+          Number(payment.extraAmount || 0)
+        );
+      }
+      return sum;
+    }, 0);
+
+    let trendPercent = 0;
+    if (previousMonthRevenue > 0) {
+      trendPercent =
+        ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) *
+        100;
+    } else if (currentMonthRevenue > 0) {
+      trendPercent = 100;
+    }
+
+    return {
+      currentMonthRevenue,
+      trendPercent: Number(trendPercent.toFixed(1)),
+      trendIsPositive: trendPercent >= 0,
+    };
+  }, [payments]);
+
+  const posAllocatedBandwidth = Number(posDetails?.allocatedBandwidthMbps ?? 0);
+  const posUsedBandwidth = Number(
+    (posDetails as { usedBandwidthMbps?: number; currentUsageMbps?: number })
+      ?.usedBandwidthMbps ??
+      (posDetails as { usedBandwidthMbps?: number; currentUsageMbps?: number })
+        ?.currentUsageMbps ??
+      0,
   );
+  const posUtilization =
+    posAllocatedBandwidth > 0
+      ? Math.round((posUsedBandwidth / posAllocatedBandwidth) * 100)
+      : 0;
+
   const unpaidAmount = invoices
     .filter((i) => !isInvoicePaid(i))
     .reduce((sum, i) => sum + Number(i.amount || 0), 0);
@@ -838,11 +910,28 @@ export function BillingPage() {
       />
 
       <div className="grid gap-4 md:grid-cols-4">
+        {isPosManager && (
+          <StatCard
+            title={t("Total Bandwidth")}
+            value={`${posAllocatedBandwidth.toLocaleString()} Mbps`}
+            subtitle={`${posUtilization}% utilized (${posUsedBandwidth.toLocaleString()} Mbps used)`}
+            icon={Wifi}
+            variant="accent"
+          />
+        )}
         <StatCard
           title={t("Monthly Revenue")}
-          value={`$${totalRevenue.toLocaleString()}`}
+          value={
+            paymentsLoading
+              ? t("Loading...")
+              : `$${revenueMetrics.currentMonthRevenue.toLocaleString()}`
+          }
           icon={DollarSign}
           variant="success"
+          trend={{
+            value: Math.abs(revenueMetrics.trendPercent),
+            isPositive: revenueMetrics.trendIsPositive,
+          }}
         />
         <StatCard
           title={t("Unpaid Amount")}

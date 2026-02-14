@@ -1,7 +1,7 @@
 import axios from "axios";
 import { useStore } from "@/store/auth-store";
 
-const API_BASE_URL = import.meta.env.VITE_API_URL || "/api";
+const API_BASE_URL = "http://localhost:3002/api";
 
 export const axiosClient = axios.create({
   baseURL: API_BASE_URL,
@@ -30,7 +30,12 @@ axiosClient.interceptors.response.use(
   (error) => {
     if (error.response?.status === 401) {
       useStore.getState().logout();
-      window.location.href = "/login";
+      if (
+        typeof window !== "undefined" &&
+        window.location.pathname !== "/login"
+      ) {
+        window.location.replace("/login");
+      }
     }
     return Promise.reject(error);
   }

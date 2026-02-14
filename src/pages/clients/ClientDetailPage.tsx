@@ -2,7 +2,11 @@ import { useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
-import { getInvoiceStatus, isInvoicePaid } from "@/utils/invoiceStatus";
+import {
+  getInvoiceStatus,
+  isInvoicePaid,
+  getInvoiceTotalPaid,
+} from "@/utils/invoiceStatus";
 import { DataTable } from "@/components/common/DataTable";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -98,7 +102,7 @@ export function ClientDetailPage() {
   const upgradeSubscriptionMutation = useUpgradeSubscription();
   const { data: servicePlans = [] } = useServicePlans({
     isActive: true,
-    serviceType: ServiceType.PREPAID,
+    // serviceType: ServiceType.PREPAID,
   });
   const [isEditOpen, setIsEditOpen] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
@@ -226,7 +230,7 @@ export function ClientDetailPage() {
   };
   const balance = invoices.reduce((sum, inv) => {
     const amount = Number(inv.amount) || 0;
-    const paid = Number(inv.totalPaid) || 0;
+    const paid = getInvoiceTotalPaid(inv);
     return sum + (amount - paid);
   }, 0);
 
@@ -393,13 +397,12 @@ export function ClientDetailPage() {
   };
 
   const openPayment = () => {
-    const unpaidInvoices = invoices.filter(
-      (inv) => !isInvoicePaid(inv),
-    );
+    const unpaidInvoices = invoices.filter((inv) => !isInvoicePaid(inv));
     const firstInvoice = unpaidInvoices[0];
+    const remaining = firstInvoice ? getRemainingAmount(firstInvoice) : 0;
     setPaymentForm({
       invoiceId: firstInvoice ? firstInvoice.id : "none",
-      amountPaid: "",
+      amountPaid: remaining.toString(),
       paymentMethod: PaymentMethod.CASH,
       paymentReference: "",
       notes: "",
@@ -482,7 +485,7 @@ export function ClientDetailPage() {
 
   const getRemainingAmount = (invoice: Invoice) => {
     const amount = Number(invoice.amount || 0);
-    const paid = Number(invoice.totalPaid || 0);
+    const paid = getInvoiceTotalPaid(invoice);
     return Math.max(0, amount - paid);
   };
 
@@ -570,14 +573,9 @@ export function ClientDetailPage() {
       });
       return;
     }
-    const selectedPlan = servicePlans.find((p) => p.id === subscribeForm.planId);
-    if (selectedPlan && selectedPlan.serviceType !== ServiceType.PREPAID) {
-      toast({
-        title: t("Only PREPAID plans are allowed"),
-        variant: "destructive",
-      });
-      return;
-    }
+    const selectedPlan = servicePlans.find(
+      (p) => p.id === subscribeForm.planId,
+    );
     if (isSubscribing) return;
     try {
       setIsSubscribing(true);
@@ -608,7 +606,9 @@ export function ClientDetailPage() {
         title={client.fullName}
         description={`${t("Status")}: ${statusLabelMap[client.status] || client.status}`}
         actions={
-          <div className={`flex flex-wrap gap-2 ${isArabic ? "flex-row-reverse" : ""}`}>
+          <div
+            className={`flex flex-wrap gap-2 ${isArabic ? "flex-row-reverse" : ""}`}
+          >
             <Button variant="outline" onClick={() => navigate("/clients")}>
               <BackIcon className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
               {t("Back")}
@@ -697,7 +697,9 @@ export function ClientDetailPage() {
                         <SelectValue placeholder={t("Select POS")} />
                       </SelectTrigger>
                       <SelectContent>
-                        <SelectItem value="DYNAMIC">{t("Dynamic IP")}</SelectItem>
+                        <SelectItem value="DYNAMIC">
+                          {t("Dynamic IP")}
+                        </SelectItem>
                         <SelectItem value="STATIC">{t("Static IP")}</SelectItem>
                         <SelectItem value="PPPOE">{t("PPPoE")}</SelectItem>
                       </SelectContent>
@@ -776,7 +778,9 @@ export function ClientDetailPage() {
               </Button>
             ) : client.status === "SUSPENDED" ? (
               <Button variant="default" onClick={handleReactivate}>
-                <CheckCircle className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`} />
+                <CheckCircle
+                  className={`w-4 h-4 ${isArabic ? "ml-2" : "mr-2"}`}
+                />
                 {t("Reactivate")}
               </Button>
             ) : null}
@@ -816,7 +820,9 @@ export function ClientDetailPage() {
             </div>
             {client.staticIp && (
               <div>
-                <p className="text-xs text-muted-foreground">{t("Static IP")}</p>
+                <p className="text-xs text-muted-foreground">
+                  {t("Static IP")}
+                </p>
                 <p className="font-medium font-mono">
                   {client.staticIp.ipAddress}
                 </p>
@@ -850,7 +856,9 @@ export function ClientDetailPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div>
-              <p className="text-xs text-muted-foreground">{t("Current Plan")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("Current Plan")}
+              </p>
               <p className="font-medium text-lg">
                 {translateApiText(activeSubscription?.plan?.planName) ||
                   t("No active plan")}
@@ -859,13 +867,17 @@ export function ClientDetailPage() {
             {activeSubscription && (
               <>
                 <div>
-                  <p className="text-xs text-muted-foreground">{t("Plan Cost")}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("Plan Cost")}
+                  </p>
                   <p className="font-medium text-lg">
                     ${Number(activeSubscription.plan?.cost || 0).toFixed(2)}
                   </p>
                 </div>
                 <div>
-                  <p className="text-xs text-muted-foreground">{t("End Date")}</p>
+                  <p className="text-xs text-muted-foreground">
+                    {t("End Date")}
+                  </p>
                   <p className="font-medium">
                     {new Date(activeSubscription.endDate).toLocaleDateString()}
                   </p>
@@ -919,7 +931,8 @@ export function ClientDetailPage() {
                               )
                               .map((plan) => (
                                 <SelectItem key={plan.id} value={plan.id}>
-                                  {translateApiText(plan.planName)} - ${plan.cost}
+                                  {translateApiText(plan.planName)} - $
+                                  {plan.cost}
                                 </SelectItem>
                               ))}
                           </SelectContent>
@@ -1061,32 +1074,34 @@ export function ClientDetailPage() {
                       <Label>{t("Invoice")}</Label>
                       <Select
                         value={paymentForm.invoiceId}
-                        onValueChange={(v) =>
-                          setPaymentForm({ ...paymentForm, invoiceId: v })
-                        }
+                        onValueChange={(v) => {
+                          const inv = invoices.find((i) => i.id === v);
+                          const remaining = inv ? getRemainingAmount(inv) : 0;
+                          setPaymentForm({
+                            ...paymentForm,
+                            invoiceId: v,
+                            amountPaid: remaining.toString(),
+                          });
+                        }}
                       >
                         <SelectTrigger>
                           <SelectValue placeholder={t("Select Invoice")} />
                         </SelectTrigger>
                         <SelectContent>
-                          {invoices.filter(
-                            (inv) => !isInvoicePaid(inv),
-                          ).length === 0 && (
+                          {invoices.filter((inv) => !isInvoicePaid(inv))
+                            .length === 0 && (
                             <SelectItem value="none" disabled>
                               {t("No invoices available")}
                             </SelectItem>
                           )}
                           {invoices
-                            .filter(
-                              (inv) =>
-                                !isInvoicePaid(inv),
-                            )
+                            .filter((inv) => !isInvoicePaid(inv))
                             .map((inv) => (
-                            <SelectItem key={inv.id} value={inv.id}>
-                              {inv.invoiceNumber} - $
-                              {Number(inv.amount).toFixed(2)}
-                            </SelectItem>
-                          ))}
+                              <SelectItem key={inv.id} value={inv.id}>
+                                {inv.invoiceNumber} - $
+                                {Number(inv.amount).toFixed(2)}
+                              </SelectItem>
+                            ))}
                         </SelectContent>
                       </Select>
                     </div>
@@ -1094,14 +1109,9 @@ export function ClientDetailPage() {
                       <Label>{t("Amount Paid")}</Label>
                       <Input
                         type="number"
-                        min="0"
                         value={paymentForm.amountPaid}
-                        onChange={(e) =>
-                          setPaymentForm({
-                            ...paymentForm,
-                            amountPaid: e.target.value,
-                          })
-                        }
+                        readOnly
+                        className="bg-muted"
                       />
                     </div>
                     <div className="space-y-2">
@@ -1116,7 +1126,9 @@ export function ClientDetailPage() {
                         }
                       >
                         <SelectTrigger>
-                          <SelectValue placeholder={t("Select Payment Method")} />
+                          <SelectValue
+                            placeholder={t("Select Payment Method")}
+                          />
                         </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="CASH">{t("Cash")}</SelectItem>
@@ -1307,7 +1319,9 @@ export function ClientDetailPage() {
                     </div>
                     <div className="grid grid-cols-2 gap-2 text-sm">
                       <div>
-                        <p className="text-muted-foreground">{t("Start Date")}</p>
+                        <p className="text-muted-foreground">
+                          {t("Start Date")}
+                        </p>
                         <p>{new Date(sub.startDate).toLocaleDateString()}</p>
                       </div>
                       <div>

@@ -37,7 +37,8 @@ export function LoginPage() {
   // Redirect if already authenticated
   useEffect(() => {
     if (!isAuthenticated || !user) return;
-    const target = user.role === "CLIENT" ? "/client" : "/dashboard";
+    const isClientUser = user.role === "CLIENT" || Boolean(user.clientId);
+    const target = isClientUser ? "/client" : "/dashboard";
     navigate(target, { replace: true });
   }, [isAuthenticated, user, navigate]);
 
@@ -179,7 +180,9 @@ export function LoginPage() {
               name: data.user.username,
             }),
           });
-          const target = data.user.role === "CLIENT" ? "/client" : "/welcome";
+          const isClientUser =
+            data.user.role === "CLIENT" || Boolean(data.user.clientId);
+          const target = isClientUser ? "/client" : "/welcome";
           const snapshot = useStore.getState();
           console.log("[Login] user:", snapshot.user);
           console.log("[Login] isAuthenticated:", snapshot.isAuthenticated);
@@ -347,7 +350,7 @@ export function LoginPage() {
                       className="text-sm font-semibold flex items-center gap-2"
                     >
                       <User className="w-4 h-4" />
-                      {t("Username")}
+                      {t("Username or email")}
                     </Label>
                     <div className="relative group/input">
                       {/* Glow effect */}
@@ -371,7 +374,7 @@ export function LoginPage() {
                           onChange={(e) => setUsername(e.target.value)}
                           onFocus={() => setFocusedField("username")}
                           onBlur={() => setFocusedField(null)}
-                          placeholder={t("Enter your username")}
+                          placeholder={t("Enter your username or email")}
                           className="h-14 pl-12 pr-4 border-2 rounded-xl transition-all duration-300 focus:border-primary/50 focus:shadow-lg focus:shadow-primary/20"
                           required
                         />
@@ -384,6 +387,9 @@ export function LoginPage() {
                         </div>
                       </div>
                     </div>
+                    <p className="text-xs text-muted-foreground">
+                      {t("Client accounts sign in with email as username.")}
+                    </p>
                   </div>
 
                   {/* Password Field with Advanced Styling */}

@@ -257,9 +257,7 @@ export function ClientsPage() {
         const name =
           client.pos?.name ||
           (client.posId ? posNameById.get(client.posId) : undefined);
-        return (
-          <span className="text-sm sm:text-base">{name || t("N/A")}</span>
-        );
+        return <span className="text-sm sm:text-base">{name || t("N/A")}</span>;
       },
     },
     {

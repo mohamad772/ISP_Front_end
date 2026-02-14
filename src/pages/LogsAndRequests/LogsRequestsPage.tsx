@@ -44,6 +44,7 @@ import {
   RequestStatus,
   PackageUpgradeRequest,
 } from "@/types/api.types";
+import { useClients } from "@/hooks/useclients";
 import {
   Search,
   Filter,
@@ -58,6 +59,7 @@ import {
   Download,
   RefreshCcw,
   PackagePlus,
+  Plus,
 } from "lucide-react";
 
 type RequestActionType = "approve" | "reject" | "complete";
@@ -71,7 +73,11 @@ export function LogsRequestsPage() {
   const [activeTab, setActiveTab] = useState("logs");
   const [actionDialog, setActionDialog] = useState<
     | { kind: "pppoe"; type: RequestActionType; request: PPPoERequest }
-    | { kind: "package"; type: "approve" | "reject"; request: PackageUpgradeRequest }
+    | {
+        kind: "package";
+        type: "approve" | "reject";
+        request: PackageUpgradeRequest;
+      }
     | null
   >(null);
   const [credentialsDialog, setCredentialsDialog] = useState<{
@@ -82,7 +88,16 @@ export function LogsRequestsPage() {
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [credentialsReason, setCredentialsReason] = useState("");
+  const [isCreateOpen, setIsCreateOpen] = useState(false);
+  const [createForm, setCreateForm] = useState({
+    clientId: "",
+    reason: "",
+    newUsername: "",
+    newPassword: "",
+  });
 
+  const { data: clientsPage } = useClients({ page: 1, limit: 100 });
+  const clients = clientsPage?.data || [];
   const { data: auditLogs = [], isLoading: logsLoading } = useAuditLogs();
   const { data: pppoeRequests = [], isLoading: requestsLoading } =
     usePPPoERequests();
@@ -146,9 +161,8 @@ export function LogsRequestsPage() {
 
   const packageStats = useMemo(() => {
     return {
-      pending: packageRequests.filter(
-        (r) => r.status === RequestStatus.PENDING,
-      ).length,
+      pending: packageRequests.filter((r) => r.status === RequestStatus.PENDING)
+        .length,
       approved: packageRequests.filter(
         (r) => r.status === RequestStatus.APPROVED,
       ).length,
@@ -345,7 +359,11 @@ export function LogsRequestsPage() {
                 onClick={() => {
                   setNote("");
                   setRejectionReason("");
-                  setActionDialog({ kind: "pppoe", type: "approve", request: req });
+                  setActionDialog({
+                    kind: "pppoe",
+                    type: "approve",
+                    request: req,
+                  });
                 }}
               >
                 <CheckCircle2 className="h-4 w-4" />
@@ -358,7 +376,11 @@ export function LogsRequestsPage() {
                 onClick={() => {
                   setNote("");
                   setRejectionReason("");
-                  setActionDialog({ kind: "pppoe", type: "reject", request: req });
+                  setActionDialog({
+                    kind: "pppoe",
+                    type: "reject",
+                    request: req,
+                  });
                 }}
               >
                 <XCircle className="h-4 w-4" />
@@ -391,7 +413,11 @@ export function LogsRequestsPage() {
                 onClick={() => {
                   setNote("");
                   setRejectionReason("");
-                  setActionDialog({ kind: "pppoe", type: "complete", request: req });
+                  setActionDialog({
+                    kind: "pppoe",
+                    type: "complete",
+                    request: req,
+                  });
                 }}
               >
                 <CheckCircle2 className="h-4 w-4" />
@@ -608,6 +634,46 @@ export function LogsRequestsPage() {
     }
   };
 
+  const handleCreateRequest = async () => {
+    try {
+      if (!createForm.clientId) {
+        toast({
+          title: t("Client is required"),
+          variant: "destructive",
+        });
+        return;
+      }
+      if (!createForm.reason.trim()) {
+        toast({
+          title: t("Reason is required"),
+          variant: "destructive",
+        });
+        return;
+      }
+
+      await createRequestMutation.mutateAsync({
+        clientId: createForm.clientId,
+        reason: createForm.reason,
+        newUsername: createForm.newUsername || undefined,
+        newPassword: createForm.newPassword || undefined,
+      });
+
+      toast({
+        title: t("Request created"),
+        description: t("The PPPoE request has been created successfully."),
+      });
+      setIsCreateOpen(false);
+      setCreateForm({
+        clientId: "",
+        reason: "",
+        newUsername: "",
+        newPassword: "",
+      });
+    } catch {
+      toast({ title: t("Failed to create request"), variant: "destructive" });
+    }
+  };
+
   const handleUpdateCredentials = async () => {
     if (!credentialsDialog) return;
     const { request } = credentialsDialog;
@@ -626,6 +692,9 @@ export function LogsRequestsPage() {
         });
         return;
       }
+      // Note: This mutation seems to be creating a NEW request rather than updating existing one based on the hook name and params
+      // If the intent is to update, we might need a different mutation.
+      // Assuming 'createRequestMutation' is used here as per original code, but it looks like it creates a new one.
       await createRequestMutation.mutateAsync({
         clientId: request.clientId,
         reason: credentialsReason.trim(),
@@ -736,7 +805,7 @@ export function LogsRequestsPage() {
         <div
           className={`${isArabic ? "flex justify-end" : "flex justify-start"}`}
         >
-          <TabsList className="grid w-full max-w-md grid-cols-3 h-12">
+          <TabsList className="grid w-full max-w-md grid-cols-2 h-12">
             <TabsTrigger
               value="logs"
               className={`gap-2 ${isArabic ? "flex-row-reverse" : ""}`}
@@ -759,7 +828,7 @@ export function LogsRequestsPage() {
                 </Badge>
               )}
             </TabsTrigger>
-            <TabsTrigger
+            {/* <TabsTrigger
               value="packageRequests"
               className={`gap-2 ${isArabic ? "flex-row-reverse" : ""}`}
             >
@@ -773,7 +842,7 @@ export function LogsRequestsPage() {
                   {packageStats.pending}
                 </Badge>
               )}
-            </TabsTrigger>
+            </TabsTrigger> */}
           </TabsList>
         </div>
 
@@ -900,6 +969,10 @@ export function LogsRequestsPage() {
                     </SelectContent>
                   </Select>
                 </div>
+                <Button onClick={() => setIsCreateOpen(true)} className="gap-2">
+                  <Plus className="h-4 w-4" />
+                  {t("New Request")}
+                </Button>
               </div>
 
               {/* Table */}
@@ -1064,8 +1137,10 @@ export function LogsRequestsPage() {
                 <User className="h-4 w-4 text-muted-foreground" />
                 <span className="font-medium">
                   {actionDialog.kind === "pppoe"
-                    ? actionDialog.request.client?.fullName || t("Unknown Client")
-                    : actionDialog.request.requestedByUser?.username || t("Unknown Client")}
+                    ? actionDialog.request.client?.fullName ||
+                      t("Unknown Client")
+                    : actionDialog.request.requestedByUser?.username ||
+                      t("Unknown Client")}
                 </span>
               </div>
               <div className="flex items-start gap-2 text-sm">
@@ -1235,6 +1310,89 @@ export function LogsRequestsPage() {
                     <CheckCircle2 className="h-4 w-4" />
                     {t("Save")}
                   </>
+                )}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* New Request Dialog */}
+      <Dialog open={isCreateOpen} onOpenChange={setIsCreateOpen}>
+        <DialogContent dir={isArabic ? "rtl" : "ltr"} className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("Create PPPoE Request")}</DialogTitle>
+            <DialogDescription>
+              {t("Submit a new PPPoE change request for a client.")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label>{t("Client")} *</Label>
+              <Select
+                value={createForm.clientId}
+                onValueChange={(value) =>
+                  setCreateForm({ ...createForm, clientId: value })
+                }
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={t("Select a client")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {clients.map((client) => (
+                    <SelectItem key={client.id} value={client.id}>
+                      {client.fullName}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>{t("Reason")} *</Label>
+              <Textarea
+                value={createForm.reason}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, reason: e.target.value })
+                }
+                placeholder={t("Reason for request")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("New Username")}</Label>
+              <Input
+                value={createForm.newUsername}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, newUsername: e.target.value })
+                }
+                placeholder={t("Optional new username")}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>{t("New Password")}</Label>
+              <Input
+                value={createForm.newPassword}
+                onChange={(e) =>
+                  setCreateForm({ ...createForm, newPassword: e.target.value })
+                }
+                placeholder={t("Optional new password")}
+                type="password"
+              />
+            </div>
+            <div className="flex justify-end gap-2 pt-4">
+              <Button variant="outline" onClick={() => setIsCreateOpen(false)}>
+                {t("Cancel")}
+              </Button>
+              <Button
+                onClick={handleCreateRequest}
+                disabled={createRequestMutation.isPending}
+              >
+                {createRequestMutation.isPending ? (
+                  <>
+                    <RefreshCcw className="mr-2 h-4 w-4 animate-spin" />
+                    {t("Creating...")}
+                  </>
+                ) : (
+                  t("Create Request")
                 )}
               </Button>
             </div>

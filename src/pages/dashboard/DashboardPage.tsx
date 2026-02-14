@@ -167,15 +167,63 @@ export function DashboardPage() {
     ? posAllocatedBandwidth
     : Number(globalAllocatedBandwidth || posAllocatedTotal);
 
-  // Calculate total payments
-  const totalPayments = useMemo(() => {
-    if (!paymentData) return 0;
+  const revenueMetrics = useMemo(() => {
+    const now = new Date();
+    const currentMonth = now.getMonth();
+    const currentYear = now.getFullYear();
+    const previousMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const previousMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
 
-    return paymentData.reduce((sum, payment) => {
-      return (
-        sum + Number(payment.amountPaid || 0) + Number(payment.extraAmount || 0)
-      );
+    const currentMonthRevenue = (paymentData || []).reduce((sum, payment) => {
+      const dateSource = payment.paymentDate || payment.createdAt;
+      const paidAt = new Date(dateSource);
+      if (Number.isNaN(paidAt.getTime())) return sum;
+
+      if (
+        paidAt.getMonth() === currentMonth &&
+        paidAt.getFullYear() === currentYear
+      ) {
+        return (
+          sum +
+          Number(payment.amountPaid || 0) +
+          Number(payment.extraAmount || 0)
+        );
+      }
+      return sum;
     }, 0);
+
+    const previousMonthRevenue = (paymentData || []).reduce((sum, payment) => {
+      const dateSource = payment.paymentDate || payment.createdAt;
+      const paidAt = new Date(dateSource);
+      if (Number.isNaN(paidAt.getTime())) return sum;
+
+      if (
+        paidAt.getMonth() === previousMonth &&
+        paidAt.getFullYear() === previousMonthYear
+      ) {
+        return (
+          sum +
+          Number(payment.amountPaid || 0) +
+          Number(payment.extraAmount || 0)
+        );
+      }
+      return sum;
+    }, 0);
+
+    let trendPercent = 0;
+    if (previousMonthRevenue > 0) {
+      trendPercent =
+        ((currentMonthRevenue - previousMonthRevenue) / previousMonthRevenue) *
+        100;
+    } else if (currentMonthRevenue > 0) {
+      trendPercent = 100;
+    }
+
+    return {
+      currentMonthRevenue,
+      trendPercent: Number(trendPercent.toFixed(1)),
+      trendIsPositive: trendPercent >= 0,
+    };
   }, [paymentData]);
 
   const normalizedUnpaidCount =
@@ -189,8 +237,6 @@ export function DashboardPage() {
     normalizedUnpaidCount ||
     stats?.unpaidInvoices ||
     0;
-
-  console.log("totalPayments : ", totalPayments);
 
   // Calculate total and active clients
   const totalClients = clientsData?.total || 0;
@@ -622,11 +668,14 @@ export function DashboardPage() {
           value={
             isPaymentLoading
               ? t("Loading...")
-              : `$${totalPayments.toLocaleString(localeWithLatinDigits)}`
+              : `$${revenueMetrics.currentMonthRevenue.toLocaleString(localeWithLatinDigits)}`
           }
           icon={DollarSign}
           variant="success"
-          trend={{ value: 12.8, isPositive: true }}
+          trend={{
+            value: Math.abs(revenueMetrics.trendPercent),
+            isPositive: revenueMetrics.trendIsPositive,
+          }}
         />
       </div>
 

@@ -3,7 +3,7 @@ import { useStore } from "@/store/auth-store";
 import { UserRole } from "@/types/api.types";
 
 const apiClient = axios.create({
-  baseURL: "http://localhost:3000",
+  baseURL: "http://localhost:3002",
   headers: {
     "Content-Type": "application/json",
   },
@@ -148,11 +148,25 @@ apiClient.interceptors.response.use(
     // Any status codes that falls outside the range of 2xx cause this function to trigger
     // Do something with response error
     // Example: Handle different error codes
-    if (error.response && error.response.status === 401) {
-      // Handle unauthorized, e.g., redirect to login
-      console.error("Unauthorized access, redirecting to login");
-      useStore.getState().logout();
-      window.location.href = "/login";
+    const status = error?.response?.status;
+    if (status === 401) {
+      const rawUrl = String(error?.config?.url || "");
+      const normalizedUrl = rawUrl.startsWith("http")
+        ? new URL(rawUrl).pathname
+        : rawUrl.startsWith("/")
+          ? rawUrl
+          : `/${rawUrl}`;
+      const isAuthRequest = normalizedUrl.startsWith("/auth");
+      const isOnLoginPage =
+        typeof window !== "undefined" && window.location.pathname === "/login";
+
+      if (!isAuthRequest) {
+        console.error("Unauthorized access, redirecting to login");
+        useStore.getState().logout();
+        if (!isOnLoginPage) {
+          window.location.replace("/login");
+        }
+      }
     } else {
       // Log or handle other errors
       const message =

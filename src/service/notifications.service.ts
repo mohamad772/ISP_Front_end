@@ -7,3 +7,7 @@ export async function getMyNotifications(limit?: number): Promise<Notification[]
   });
   return response.data;
 }
+
+export async function registerDevice(token: string): Promise<void> {
+  await apiClient.post("/notifications/register-device", { token , channel: "FIREBASE" });
+}

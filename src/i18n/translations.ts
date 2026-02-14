@@ -11,9 +11,13 @@
       "Invalid credentials. Please try again.":
         "Invalid credentials. Please try again.",
       Username: "Username",
+      "Username or email": "Username or email",
       "Enter your username": "Enter your username",
+      "Enter your username or email": "Enter your username or email",
       Password: "Password",
       "Enter your password": "Enter your password",
+      "Client accounts sign in with email as username.":
+        "Client accounts sign in with email as username.",
       "Sign In": "Sign In",
       "Authenticating...": "Authenticating...",
       "Client Portal": "Client Portal",
@@ -786,9 +790,13 @@
       "Invalid credentials. Please try again.":
         "بيانات الدخول غير صحيحة. حاول مرة أخرى.",
       Username: "اسم المستخدم",
+      "Username or email": "اسم المستخدم أو البريد الإلكتروني",
       "Enter your username": "أدخل اسم المستخدم",
+      "Enter your username or email": "أدخل اسم المستخدم أو البريد الإلكتروني",
       Password: "كلمة المرور",
       "Enter your password": "أدخل كلمة المرور",
+      "Client accounts sign in with email as username.":
+        "حسابات العملاء تسجل الدخول باستخدام البريد الإلكتروني كاسم مستخدم.",
       "Sign In": "تسجيل الدخول",
       "Authenticating...": "جاري التحقق...",
       "Client Portal": "بوابة العميل",

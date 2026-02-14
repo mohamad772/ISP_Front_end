@@ -23,18 +23,21 @@ import { useStore } from "@/store/auth-store";
 import { initializeTheme } from "@/utils/theme";
 import { UserRole } from "@/types/api.types";
 import NotFound from "./pages/NotFound";
-import { LogsRequestsPage } from "./pages/LogsandRequests/LogsRequestsPage";
+import { initializeApp } from "firebase/app";
+import { getMessaging, getToken, onMessage } from "firebase/messaging";
+import { LogsRequestsPage } from "./pages/LogsAndRequests/LogsRequestsPage";
+import { registerDevice } from "./service/notifications.service";
+import { useTranslation } from "react-i18next";
+import { toast } from "sonner";
 
 const queryClient = new QueryClient();
 
 const RequireAuth = ({ children }: { children: JSX.Element }) => {
   const isAuthenticated = useStore((state) => state.isAuthenticated);
   const user = useStore((state) => state.user);
-
   if (!isAuthenticated) {
     return <Navigate to="/login" replace />;
   }
-
   return children;
 };
 
@@ -45,30 +48,69 @@ const LockedPage = ({ section }: { section: string }) => (
     </div>
     <div className="relative z-10 text-center">
       <h2 className="text-2xl font-semibold mb-3">{section}</h2>
-      <p className="text-muted-foreground">This section is disabled for your account.</p>
+      <p className="text-muted-foreground">
+        This section is disabled for your account.
+      </p>
     </div>
   </div>
 );
 
-const App = () => {
-  const isAuthenticated = useStore((state) => state.isAuthenticated);
-  const user = useStore((state) => state.user);
+const firebaseConfig = {
+  apiKey: "AIzaSyD5VRJmvSddj0KJxWMV1R5IJJhwzRjig6o",
+  authDomain: "isp2026.firebaseapp.com",
+  projectId: "isp2026",
+  storageBucket: "isp2026.firebasestorage.app",
+  messagingSenderId: "67619569460",
+  appId: "1:67619569460:web:fe350ea5cffb6225f26f61",
+};
 
-  const hasCapability = (capability: string) => {
-    if (!user) return false;
-    if (user.role === UserRole.WSP_ADMIN) return true;
-    return !!user.capabilities?.includes(capability);
-  };
+const app = initializeApp(firebaseConfig);
+let messaging: any = null;
+
+try {
+  if (typeof window !== "undefined" && typeof navigator !== "undefined") {
+    messaging = getMessaging(app);
+  }
+} catch (error) {
+  console.error("Firebase messaging not supported:", error);
+}
+
+const App = () => {
+  const user = useStore((state) => state.user);
+  const isAuthenticated = useStore((state) => state.isAuthenticated);
+  const hasPermission = useStore((state) => state.hasPermission);
+  const { i18n } = useTranslation();
+  const isClientUser = user?.role === UserRole.CLIENT || Boolean(user?.clientId);
+  const isWspAdmin = user?.role === UserRole.WSP_ADMIN;
+  const isSubAdmin = user?.role === UserRole.SUB_ADMIN;
+  const isPosManager = user?.role === UserRole.POS_MANAGER;
 
   const canAccessUsers =
     !!user &&
-    [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN].includes(user.role) &&
-    hasCapability("USERS_READ");
+    ((isWspAdmin || isSubAdmin) && hasPermission("USERS_READ"));
 
   const canAccessPosList =
     !!user &&
-    [UserRole.WSP_ADMIN, UserRole.SUB_ADMIN].includes(user.role) &&
-    hasCapability("POS_READ");
+    ((isWspAdmin || isSubAdmin) && hasPermission("POS_READ"));
+
+  const canAccessClients =
+    !!user &&
+    (isWspAdmin || isPosManager || (isSubAdmin && hasPermission("CLIENTS_READ")));
+
+  const canAccessBilling =
+    !!user &&
+    (isWspAdmin ||
+      isPosManager ||
+      (isSubAdmin &&
+        (hasPermission("INVOICES_READ") || hasPermission("PAYMENTS_READ"))));
+
+  const canAccessNetwork =
+    !!user &&
+    (isWspAdmin || isPosManager || (isSubAdmin && hasPermission("STATIC_IP_READ")));
+
+  const canAccessLogs =
+    !!user &&
+    (isWspAdmin || isPosManager || (isSubAdmin && hasPermission("AUDIT_LOGS_READ")));
 
   const canAccessSettings =
     !!user &&
@@ -76,15 +118,63 @@ const App = () => {
       user.role,
     );
 
+  async function requestPermission() {
+    if (
+      !messaging ||
+      typeof Notification === "undefined" ||
+      typeof navigator === "undefined"
+    ) {
+      return;
+    }
+
+    try {
+      const permission = await Notification.requestPermission();
+      if (permission === "granted") {
+        const token = await getToken(messaging, {
+          vapidKey:
+            "BLscDTItBQ0HeZR2j6GcHT3xM2nWKUBfyRonebEjGvEuaza1waz76DUJ_tPqq-6_xqKzaU_AETgu-HiKQY-idQc",
+        });
+        if (token) {
+          console.log("Token:", token);
+          try {
+            await registerDevice(token);
+            console.log("Device registered successfully");
+          } catch (error) {
+            console.error("Failed to register device:", error);
+          }
+        }
+      }
+    } catch (error) {
+      console.error("Error requesting permission:", error);
+    }
+  }
+
   useEffect(() => {
     initializeTheme();
   }, []);
+
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    requestPermission();
+
+    if (!messaging) return;
+    const unsubscribe = onMessage(messaging, (payload) => {
+      console.log("Message received. ", payload);
+      toast.info(payload.notification?.title || "Notification", {
+        description: payload.notification?.body || "New message received",
+        duration: 5000,
+      });
+    });
+
+    return () => unsubscribe();
+  }, [isAuthenticated]);
 
   return (
     <QueryClientProvider client={queryClient}>
       <TooltipProvider>
         <Toaster />
-        <Sonner />
+        <Sonner richColors closeButton position="top-right" />
         <BrowserRouter
           future={{ v7_startTransition: true, v7_relativeSplatPath: true }}
         >
@@ -94,7 +184,7 @@ const App = () => {
               element={
                 isAuthenticated ? (
                   <Navigate
-                    to={user?.role === "CLIENT" ? "/client" : "/welcome"}
+                    to={isClientUser ? "/client" : "/welcome"}
                     replace
                   />
                 ) : (
@@ -130,27 +220,105 @@ const App = () => {
               <Route path="dashboard" element={<DashboardPage />} />
               <Route
                 path="users"
-                element={canAccessUsers ? <UsersPage /> : <LockedPage section="Users" />}
+                element={
+                  canAccessUsers ? (
+                    <UsersPage />
+                  ) : (
+                    <LockedPage section="Users" />
+                  )
+                }
               />
               <Route
                 path="users/:id"
-                element={canAccessUsers ? <UsersPage /> : <LockedPage section="Users" />}
+                element={
+                  canAccessUsers ? (
+                    <UsersPage />
+                  ) : (
+                    <LockedPage section="Users" />
+                  )
+                }
               />
               <Route
                 path="pos"
-                element={canAccessPosList ? <POSPage /> : <LockedPage section="POS Management" />}
+                element={
+                  canAccessPosList ? (
+                    <POSPage />
+                  ) : (
+                    <LockedPage section="POS Management" />
+                  )
+                }
               />
-              <Route path="pos/:id" element={<POSDetailPage />} />
-              <Route path="clients" element={<ClientsPage />} />
-              <Route path="clients/:id" element={<ClientDetailPage />} />
-              <Route path="billing" element={<BillingPage />} />
-              <Route path="network" element={<NetworkPage />} />
-              <Route path="logs" element={<LogsRequestsPage />} />
+              <Route
+                path="pos/:id"
+                element={
+                  canAccessPosList ? (
+                    <POSDetailPage />
+                  ) : (
+                    <LockedPage section="POS Management" />
+                  )
+                }
+              />
+              <Route
+                path="clients"
+                element={
+                  canAccessClients ? (
+                    <ClientsPage />
+                  ) : (
+                    <LockedPage section="Clients" />
+                  )
+                }
+              />
+              <Route
+                path="clients/:id"
+                element={
+                  canAccessClients ? (
+                    <ClientDetailPage />
+                  ) : (
+                    <LockedPage section="Clients" />
+                  )
+                }
+              />
+              <Route
+                path="billing"
+                element={
+                  canAccessBilling ? (
+                    <BillingPage />
+                  ) : (
+                    <LockedPage section="Billing" />
+                  )
+                }
+              />
+              <Route
+                path="network"
+                element={
+                  canAccessNetwork ? (
+                    <NetworkPage />
+                  ) : (
+                    <LockedPage section="Network" />
+                  )
+                }
+              />
+              <Route
+                path="logs"
+                element={
+                  canAccessLogs ? (
+                    <LogsRequestsPage />
+                  ) : (
+                    <LockedPage section="Logs & Requests" />
+                  )
+                }
+              />
               <Route path="notifications" element={<NotificationsPage />} />
               <Route path="profile" element={<ProfilePage />} />
               <Route
                 path="settings"
-                element={canAccessSettings ? <SettingsPage /> : <LockedPage section="Settings" />}
+                element={
+                  canAccessSettings ? (
+                    <SettingsPage />
+                  ) : (
+                    <LockedPage section="Settings" />
+                  )
+                }
               />
             </Route>
             <Route path="*" element={<NotFound />} />

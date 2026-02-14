@@ -6,7 +6,8 @@ export function WelcomePage() {
   const navigate = useNavigate();
   const user = useStore((state) => state.user);
   const [progress, setProgress] = useState(0);
-  const destinationLabel = user?.role === "CLIENT" ? "client portal" : "dashboard";
+  const isClientUser = user?.role === "CLIENT" || Boolean(user?.clientId);
+  const destinationLabel = isClientUser ? "client portal" : "dashboard";
   const [particles, setParticles] = useState<
     Array<{ id: number; x: number; y: number; delay: number; duration: number }>
   >([]);
@@ -35,7 +36,7 @@ export function WelcomePage() {
 
     // Navigate after 3 seconds
     const timeoutId = window.setTimeout(() => {
-      const target = user?.role === "CLIENT" ? "/client" : "/dashboard";
+      const target = isClientUser ? "/client" : "/dashboard";
       navigate(target, { replace: true });
     }, 3000);
 
@@ -43,7 +44,7 @@ export function WelcomePage() {
       window.clearTimeout(timeoutId);
       clearInterval(progressInterval);
     };
-  }, [navigate, user?.role]);
+  }, [isClientUser, navigate]);
 
   return (
     <div className="relative min-h-screen overflow-hidden bg-[#10172B]">

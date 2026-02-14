@@ -1,5 +1,6 @@
 import apiClient from "@/utils/apiClient";
 import { UserRole, type LoginRequest, type LoginResponse, type User } from "@/types/api.types";
+import { isAxiosError } from "axios";
 
 type RawLoginResponse = {
   access_token?: string;
@@ -33,13 +34,16 @@ function normalizeRole(role: unknown): UserRole | undefined {
     return role as UserRole;
   }
 
-  const normalized = role.trim().toUpperCase();
+  const normalized = role.trim().replace(/[\s-]+/g, "_").toUpperCase();
   const legacyMap: Record<string, UserRole> = {
     ADMIN: UserRole.WSP_ADMIN,
     WSP_ADMIN: UserRole.WSP_ADMIN,
     SUB_ADMIN: UserRole.SUB_ADMIN,
     POS_MANAGER: UserRole.POS_MANAGER,
     CLIENT: UserRole.CLIENT,
+    CLIENT_USER: UserRole.CLIENT,
+    END_USER: UserRole.CLIENT,
+    CUSTOMER: UserRole.CLIENT,
   };
   return legacyMap[normalized];
 }
@@ -76,7 +80,9 @@ function buildUserFromToken(token: string): User | null {
   const username = payload.username ?? "user";
   const id = payload.sub ?? payload.userId ?? "unknown";
   const now = new Date().toISOString();
-  const role = normalizeRole(payload.role) ?? UserRole.WSP_ADMIN;
+  const role =
+    normalizeRole(payload.role) ??
+    (payload.clientId ? UserRole.CLIENT : UserRole.WSP_ADMIN);
 
   return {
     id,
@@ -139,8 +145,13 @@ function normalizeLoginResponse(raw: RawLoginResponse): LoginResponse {
       if (tokenUser) {
         user = { ...tokenUser, ...user };
       }
+      if (!user.role && user.clientId) {
+        user = { ...user, role: UserRole.CLIENT };
+      }
     } else if (role) {
       user = { ...user, role };
+    } else if (user.clientId) {
+      user = { ...user, role: UserRole.CLIENT };
     }
   }
 
@@ -202,8 +213,37 @@ function getPosManagerCapabilities(): string[] {
  * Login user and receive access token
  */
 export async function login(credentials: LoginRequest): Promise<LoginResponse> {
-  const response = await apiClient.post("/auth/login", credentials);
-  return normalizeLoginResponse(response.data as RawLoginResponse);
+  const usernameOrEmail = credentials.username.trim();
+  const password = credentials.password;
+  const looksLikeEmail = usernameOrEmail.includes("@");
+
+  const payloadVariants: Array<Record<string, string>> = looksLikeEmail
+    ? [
+        { email: usernameOrEmail, password },
+        { username: usernameOrEmail, password },
+        { identifier: usernameOrEmail, password },
+      ]
+    : [
+        { username: usernameOrEmail, password },
+        { identifier: usernameOrEmail, password },
+      ];
+
+  let lastError: unknown;
+
+  for (const payload of payloadVariants) {
+    try {
+      const response = await apiClient.post("/auth/login", payload);
+      return normalizeLoginResponse(response.data as RawLoginResponse);
+    } catch (error) {
+      lastError = error;
+      const status = isAxiosError(error) ? error.response?.status : undefined;
+      if (status && status !== 401 && status !== 400) {
+        throw error;
+      }
+    }
+  }
+
+  throw lastError ?? new Error("Login failed");
 }
 
 /**
