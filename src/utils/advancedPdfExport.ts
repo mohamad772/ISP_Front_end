@@ -672,7 +672,8 @@ export class AdvancedPdfExporter {
       this.addMonthlyChart(invoices);
     }
 
-    // Detailed invoice table
+    // Detailed invoice table starts on a fresh page
+    this.addNewPage();
     this.addReportTitle("Detailed Invoice List");
     this.addInvoiceTable(invoices);
 

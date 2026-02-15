@@ -90,6 +90,16 @@ export function ClientPortalPage() {
     staleTime: 60_000,
   });
 
+  const selectablePlans = useMemo(() => {
+    if (!plans) return [];
+    return plans
+      .filter(
+        (plan) =>
+          plan.serviceType === "PREPAID" || plan.serviceType === "POSTPAID",
+      )
+      .sort((a, b) => Number(a.cost) - Number(b.cost));
+  }, [plans]);
+
   const { mutateAsync: requestPlan, isPending: isRequestingPlan } =
     useCreatePackageUpgradeRequest();
   const { mutateAsync: requestPasswordChange, isPending: isRequestingPassword } =
@@ -463,9 +473,10 @@ export function ClientPortalPage() {
                       />
                     </SelectTrigger>
                     <SelectContent>
-                      {plans?.map((plan) => (
+                      {selectablePlans.map((plan) => (
                         <SelectItem key={plan.id} value={plan.id}>
-                          {translateApiText(plan.planName)} - {plan.cost}$
+                          {translateApiText(plan.planName)} - {plan.cost}$ (
+                          {plan.serviceType})
                         </SelectItem>
                       ))}
                     </SelectContent>
